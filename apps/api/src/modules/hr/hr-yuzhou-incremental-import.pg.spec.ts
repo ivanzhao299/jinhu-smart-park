@@ -8,6 +8,7 @@ import { resolve } from "node:path";
 import test from "node:test";
 import { DataSource, EntityManager } from "typeorm";
 import { ConflictException } from "@nestjs/common";
+import { HrService } from "./hr.service";
 import { HrYuzhouIncrementalImportService } from "./hr-yuzhou-incremental-import.service";
 import { HrContractActionEntity, HrContractEntity, HrContractTypeEntity, HrEmployeeEntity, HrEmployeeProfileEntity } from "./entities/hr.entities";
 import { HR_PERMISSIONS, type YuzhouIncrementalItem } from "@jinhu/shared";
@@ -25,10 +26,11 @@ const operation = (value: unknown): OperationResult => value as OperationResult;
 
 test("incremental import commits additions and protects exact legacy bindings", { skip: !required, timeout: 90000 }, async t => {
   assert.equal(process.env.POSTGRES_HOST, "127.0.0.1");
-  assert.equal(Number(process.env.POSTGRES_PORT), 55491);
+  const port=Number(process.env.POSTGRES_PORT);
+  assert.ok(Number.isInteger(port) && port > 1024 && port <= 65535,"PostgreSQL test port must be an explicit non-privileged loopback port");
   const database = process.env.POSTGRES_DB ?? `jinhu_hr_incremental_lab_${randomBytes(12).toString("hex")}`;
   assert.match(database,/^jinhu_hr_incremental_lab_[0-9a-f]{24}$/u);
-  const connection = { type:"postgres" as const,host:"127.0.0.1",port:55491,database,username:process.env.POSTGRES_USER,password:process.env.POSTGRES_PASSWORD };
+  const connection = { type:"postgres" as const,host:"127.0.0.1",port,database,username:process.env.POSTGRES_USER,password:process.env.POSTGRES_PASSWORD };
   // postgres is used only to provision/drop this new random database. All fixture
   // tables, migration SQL and service operations use the dedicated target below.
   const admin = new DataSource({...connection,database:"postgres"}); await admin.initialize(); let db: DataSource | undefined; let created=false;
@@ -264,6 +266,51 @@ test("incremental import commits additions and protects exact legacy bindings", 
     const relationPreview = await service.preview(scope,actor,profileRelation);
     assert.equal((relationPreview as {plan:Array<{action:string}>}).plan[0]!.action,"conflict");
     assert.equal(operation(await service.commit(scope,actor,operation(relationPreview).id)).status,"conflicted");
+    // A normalized (non-raw-core) profile can establish every formal field as a
+    // source baseline.  The ordinary profile service remains the normal editor;
+    // later imports update changed source fields only and preserve that edit.
+    const completeEmployeeKey=key("dbo.person\0PROFILE-ALL-FIELDS"),completeProfileKey=key("dbo.profile\0PROFILE-ALL-FIELDS");
+    const completeProfile={employeeSourceKey:completeEmployeeKey,employeeSourceTable:"dbo.person",idType:"resident_id",idNumber:"PROFILE-ALL-ID",englishName:"Profile English",gender:"female",dateOfBirth:"1990-01-02",ethnicity:"汉",nativePlace:"来源籍贯",politicalStatus:"群众",partyJoinDate:"2020-02-03",heightCm:170.25,weightKg:62.5,maritalStatus:"single",healthStatus:"healthy",householdRegistration:"来源户籍",highestEducation:"本科",major:"计算机",degree:"学士",foreignLanguage:"英语",languageLevel:"CET-6",graduationDate:"2012-06-30",graduationSchool:"来源大学",homePhone:"010-12345678",jobTitle:"工程师",jobGrade:"G7",employeeCategory:"正式",technicalTitle:"中级",technicalGrade:"T2",personalMobile:"13900000000",personalEmail:"profile-all@example.com",address:"来源地址",emergencyContactName:"紧急联系人",emergencyContactMobile:"13700000000",remark:"来源备注"};
+    const completePackage=pkg([{domain:"employee",sourceTable:"dbo.person",sourceKey:completeEmployeeKey,fields:{employeeCode:"PROFILE-ALL",fullName:"Profile all fields",employmentStatus:"active",orgSourceKey}},{domain:"profile",sourceTable:"dbo.profile",sourceKey:completeProfileKey,fields:completeProfile}],"profile-all-fields-create");
+    const completePreview=operation(await service.preview(scope,actor,completePackage));
+    assert.equal(operation(await service.commit(scope,actor,completePreview.id)).status,"committed");
+    const completeEmployee=(await db.query(`SELECT id FROM hr_employee WHERE employee_code='PROFILE-ALL'`))[0];
+    const completeStored=(await db.query(`SELECT id_type,english_name,to_char(date_of_birth,'YYYY-MM-DD') AS date_of_birth,to_char(party_join_date,'YYYY-MM-DD') AS party_join_date,height_cm::text AS height_cm,weight_kg::text AS weight_kg,remark,id_number_fingerprint,version FROM hr_employee_profile WHERE employee_id=$1`,[completeEmployee.id]))[0];
+    assert.deepEqual({...completeStored,id_number_fingerprint:typeof completeStored.id_number_fingerprint},{id_type:"resident_id",english_name:"Profile English",date_of_birth:"1990-01-02",party_join_date:"2020-02-03",height_cm:"170.25",weight_kg:"62.50",remark:"来源备注",id_number_fingerprint:"string",version:2});
+    const completeFormal=(await db.query(`SELECT gender,ethnicity,native_place,political_status,marital_status,health_status,household_registration,highest_education,major,degree,foreign_language,language_level,to_char(graduation_date,'YYYY-MM-DD') AS graduation_date,graduation_school,home_phone,job_title,job_grade,employee_category,technical_title,technical_grade,personal_mobile,personal_email,address,emergency_contact_name,emergency_contact_mobile FROM hr_employee_profile WHERE employee_id=$1`,[completeEmployee.id]))[0];
+    assert.deepEqual(completeFormal,{gender:"female",ethnicity:"汉",native_place:"来源籍贯",political_status:"群众",marital_status:"single",health_status:"healthy",household_registration:"来源户籍",highest_education:"本科",major:"计算机",degree:"学士",foreign_language:"英语",language_level:"CET-6",graduation_date:"2012-06-30",graduation_school:"来源大学",home_phone:"010-12345678",job_title:"工程师",job_grade:"G7",employee_category:"正式",technical_title:"中级",technical_grade:"T2",personal_mobile:"13900000000",personal_email:"profile-all@example.com",address:"来源地址",emergency_contact_name:"紧急联系人",emergency_contact_mobile:"13700000000"});
+    const fullReplay=operation(await service.preview(scope,actor,{...completePackage,manifestId:"profile-all-fields-replay"}));
+    assert.equal(operation(await service.commit(scope,actor,fullReplay.id)).unchangedCount,2);
+    const formalProfileService=Object.create(HrService.prototype) as HrService;
+    Object.assign(formalProfileService,{dataSource:db,sensitiveData:sensitive,detailEmployee:async(s:typeof scope,employeeId:string)=>db!.getRepository(HrEmployeeEntity).findOneByOrFail({...s,id:employeeId,isDeleted:false})});
+    const {employeeSourceKey,employeeSourceTable,...normalProfilePayload}=completeProfile; assert.equal(employeeSourceKey,completeEmployeeKey); assert.equal(employeeSourceTable,"dbo.person");
+    const normalEdit=await formalProfileService.updateEmployeeProfile(scope,actor,completeEmployee.id,{...normalProfilePayload,expectedVersion:completeStored.version,nativePlace:"现代人工籍贯"});
+    assert.equal(normalEdit.nativePlace,"现代人工籍贯");
+    const sourceTechnicalRevision={...completeProfile,technicalGrade:"T3"};
+    const technicalUpdate=operation(await service.preview(scope,actor,pkg([{domain:"profile",sourceTable:"dbo.profile",sourceKey:completeProfileKey,fields:sourceTechnicalRevision}],"profile-all-fields-technical-update")));
+    assert.equal(operation(await service.commit(scope,actor,technicalUpdate.id)).status,"committed");
+    const preserved=(await db.query(`SELECT native_place,technical_grade FROM hr_employee_profile WHERE employee_id=$1`,[completeEmployee.id]))[0];
+    assert.deepEqual(preserved,{native_place:"现代人工籍贯",technical_grade:"T3"});
+    const protectedSource={...sourceTechnicalRevision,nativePlace:"来源试图覆盖"};
+    const protectedPreview=await service.preview(scope,actor,pkg([{domain:"profile",sourceTable:"dbo.profile",sourceKey:completeProfileKey,fields:protectedSource}],"profile-all-fields-modern-conflict"));
+    assert.equal((protectedPreview as {plan:Array<{action:string;conflictFields:string[]}>}).plan[0]!.action,"conflict");
+    assert.equal(operation(await service.commit(scope,actor,operation(protectedPreview).id)).status,"conflicted");
+    assert.equal((await db.query(`SELECT native_place FROM hr_employee_profile WHERE employee_id=$1`,[completeEmployee.id]))[0].native_place,"现代人工籍贯");
+    const identityClear={...sourceTechnicalRevision,idType:null,idNumber:null};
+    const clearPreview=operation(await service.preview(scope,actor,pkg([{domain:"profile",sourceTable:"dbo.profile",sourceKey:completeProfileKey,fields:identityClear}],"profile-all-fields-identity-clear")));
+    assert.equal(operation(await service.commit(scope,actor,clearPreview.id)).status,"committed");
+    assert.deepEqual((await db.query(`SELECT id_type,id_number_encrypted,id_number_masked,id_number_fingerprint,native_place FROM hr_employee_profile WHERE employee_id=$1`,[completeEmployee.id]))[0],{id_type:null,id_number_encrypted:null,id_number_masked:null,id_number_fingerprint:null,native_place:"现代人工籍贯"});
+    // A pre-existing generic nine-field ledger never turns a current value into
+    // an inferred baseline when a newly admitted field appears later.
+    await db.query(`UPDATE hr_employee_profile SET height_cm=171.00,version=version+1 WHERE employee_id=$1`,[employee.id]);
+    const lateField=await service.preview(scope,actor,pkg([{domain:"profile",sourceTable:"dbo.profile",sourceKey:profileKey,fields:{...profileFields,idNumber:null,heightCm:170}}],"profile-old-ledger-new-field"));
+    assert.deepEqual((lateField as {plan:Array<{action:string;conflictFields:string[]}>}).plan[0]!.conflictFields,["heightCm"]);
+    assert.equal(operation(await service.commit(scope,actor,operation(lateField).id)).status,"conflicted");
+    assert.equal((await db.query(`SELECT height_cm::text AS height_cm FROM hr_employee_profile WHERE employee_id=$1`,[employee.id]))[0].height_cm,"171.00");
+    for (const fields of [{heightCm:"170"},{heightCm:170.123},{heightCm:29.99},{partyJoinDate:"2026-02-30"},{idType:"guessed"}]) {
+      await assert.rejects(service.preview(scope,actor,pkg([{domain:"profile",sourceTable:"dbo.profile",sourceKey:key(`invalid-profile-${JSON.stringify(fields)}`),fields:{employeeSourceKey:employeeKey,employeeSourceTable:"dbo.person",...fields}}],`invalid-profile-${JSON.stringify(fields)}`)),error=>error instanceof Error && "getStatus" in error && (error as {getStatus:()=>number}).getStatus()===400);
+    }
+    await assert.rejects(service.preview(scope,actor,pkg([{domain:"profile",sourceTable:"dbo.person.core_residue",sourceKey:key("raw-profile-unreviewed"),fields:{employeeSourceKey:employeeKey,employeeSourceTable:"dbo.person",highestEducation:"本科"}}],"raw-profile-unreviewed")),/YUZHOU_PROFILE_RAW_FIELD_PENDING/);
     const contractTypeChange = pkg([{domain:"contract",sourceTable:"dbo.contract",sourceKey:contractKey,fields:{...addition.items[2]!.fields,contractStatus:"expired",contractTypeId:"00000000-0000-4000-8000-000000000099"}}],"contract-type-change");
     const changedType = operation(await service.preview(scope,actor,contractTypeChange));
     assert.equal(operation(await service.commit(scope,actor,changedType.id)).status,"conflicted");

@@ -41,6 +41,13 @@ export function describeYuzhouImportInterface() {
       updates: "unchanged facts do not duplicate; modern edits are preserved; employment transitions and effective contract changes use normal workflows",
       sourceAbsence: "never implies target deletion",
     },
+    normalizedProfileInput: {
+      sourceTable: "caller-defined normalized profile source (for example dbo.profile); dbo.person.core_residue remains limited to separately reviewed raw fields",
+      businessFields: ["idType","idNumber","englishName","gender","dateOfBirth","ethnicity","nativePlace","politicalStatus","partyJoinDate","heightCm","weightKg","maritalStatus","healthStatus","householdRegistration","highestEducation","major","degree","foreignLanguage","languageLevel","graduationDate","graduationSchool","homePhone","jobTitle","jobGrade","employeeCategory","technicalTitle","technicalGrade","personalMobile","personalEmail","address","emergencyContactName","emergencyContactMobile","remark"],
+      omission: "omitted fields preserve the current formal profile; explicit null clears nullable values",
+      numeric: "heightCm (numeric(5,2)) and weightKg (numeric(6,2)) require JSON numbers within the formal column bounds and at most two decimal places, canonicalized to fixed-two-decimal database text for source comparison; this restriction applies to incremental source packets, not ordinary profile PUT validation",
+      rawCoverage: "coverage.profileFieldCoverage remains the sole raw Yuzhou mapping declaration; normalized input support does not add raw mappings",
+    },
     originalProfileSourcePreparation: {
       codeSha256: YUZHOU_ORIGINAL_PROFILE_ALIAS_INPUT_CODE_SHA256,
       productionWorkflow: ".github/workflows/prepare-original-profile-input.yml",

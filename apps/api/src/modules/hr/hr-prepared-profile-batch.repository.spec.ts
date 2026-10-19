@@ -49,7 +49,7 @@ test("actual ordered producer files admit metadata only and reject unsafe/tamper
       assert.deepEqual(new HrPreparedProfileBatchRepository(root,"invalid-runtime").list(scope),[]);
       assert.throws(()=>repository.package(scope,"../private",0));
     });
-    for(const oldRecipe of ["5ba25c32890045910cd04f83325fd4dfbbac7cc5cb9e15f652e50ea7bb035d2e","161530bdc3e45693ee8063b408edef1eb9936bd96f6d69934c4d9f1029943d0c"]) await t.test("frozen recipe remains admissible: "+oldRecipe.slice(0,8),()=>{
+    for(const oldRecipe of ["5ba25c32890045910cd04f83325fd4dfbbac7cc5cb9e15f652e50ea7bb035d2e","161530bdc3e45693ee8063b408edef1eb9936bd96f6d69934c4d9f1029943d0c","31f6aa4bc25237d6b7d4c32e9d10cfae8c4d04c8ae00fd08c7a866b7a850d5ec"]) await t.test("frozen recipe remains admissible: "+oldRecipe.slice(0,8),()=>{
       const receipt=JSON.parse(receiptText.toString());
       receipt.recipeSha256=oldRecipe;
       delete receipt.receiptSha256;receipt.receiptSha256=hash(canonical(receipt));

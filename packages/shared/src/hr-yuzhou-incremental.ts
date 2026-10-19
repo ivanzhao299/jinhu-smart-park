@@ -18,6 +18,23 @@ export const YUZHOU_INCREMENTAL_PACKAGE_VERSION = 1 as const;
 export const YUZHOU_INCREMENTAL_DOMAINS = ["organization", "position", "employee", "profile", "contract", "family", "skill", "credential", "training_history", "insurance_policy"] as const;
 export type YuzhouIncrementalDomain = (typeof YUZHOU_INCREMENTAL_DOMAINS)[number];
 
+/**
+ * Formal profile fields accepted by the normalized incremental profile boundary.
+ *
+ * This is deliberately a modern-field contract, not a claim that every member
+ * has a reviewed `dbo.person.core_residue` source mapping.  The legacy adapter
+ * remains responsible for declaring its much smaller reviewed raw coverage.
+ */
+export const YUZHOU_INCREMENTAL_PROFILE_BUSINESS_FIELDS = [
+  "idType", "idNumber", "englishName", "gender", "dateOfBirth", "ethnicity",
+  "nativePlace", "politicalStatus", "partyJoinDate", "heightCm", "weightKg",
+  "maritalStatus", "healthStatus", "householdRegistration", "highestEducation",
+  "major", "degree", "foreignLanguage", "languageLevel", "graduationDate",
+  "graduationSchool", "homePhone", "jobTitle", "jobGrade", "employeeCategory",
+  "technicalTitle", "technicalGrade", "personalMobile", "personalEmail", "address",
+  "emergencyContactName", "emergencyContactMobile", "remark",
+] as const;
+
 export type YuzhouIncrementalItem = {
   domain: YuzhouIncrementalDomain;
   sourceTable: string;
@@ -49,7 +66,7 @@ export const YUZHOU_INCREMENTAL_FIELDS: Record<YuzhouIncrementalDomain, readonly
   organization: ["orgCode", "orgName", "orgType", "sortOrder", "status", "remark", "contactPhone", "plannedHeadcount", "legacySourceId", "legacyHierarchyLevel", "legacyManagerReference", "parentSourceKey"],
   position: ["positionCode", "positionName", "jobFamily", "jobLevel", "headcountLimit", "status", "remark", "authority", "legacyDepartmentReference", "legacyParentReference", "legacySourceId", "legacyUptoCode", "positionManual", "qualification", "responsibilities", "hierarchyLevel", "sortOrder", "orgSourceKey", "parentPositionSourceKey"],
   employee: ["orgSourceKey", "positionSourceKey", "employeeCode", "fullName", "employmentStatus", "employmentType", "hireDate", "workLocation", "workMobile", "workEmail"],
-  profile: ["employeeSourceKey", "employeeSourceTable", "englishName", "gender", "dateOfBirth", "personalMobile", "personalEmail", "address", "idNumber", "nativePlace", "degree"],
+  profile: ["employeeSourceKey", "employeeSourceTable", ...YUZHOU_INCREMENTAL_PROFILE_BUSINESS_FIELDS],
   family: ["employeeSourceKey", "employeeSourceTable", "relationship", "fullName", "contact", "birthDate", "workUnit", "jobTitle", "politicalStatus"],
   skill: ["employeeSourceKey", "employeeSourceTable", ...YUZHOU_RECORD_SOURCE_FIELDS.skill],
   credential: ["employeeSourceKey", "employeeSourceTable", ...YUZHOU_RECORD_SOURCE_FIELDS.credential],
