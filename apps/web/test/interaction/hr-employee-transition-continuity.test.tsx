@@ -3,7 +3,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { HrEmployeesClient } from "../../app/hr/employees/HrEmployeesClient";
 import { hrApi, type HrEmployee } from "../../lib/hr-api";
 
-vi.mock("../../lib/hr-api", () => ({ hrApi: { employees: vi.fn(), employee: vi.fn(), transition: vi.fn() } }));
+vi.mock("../../lib/hr-api", () => ({ hrApi: { employees: vi.fn(), employee: vi.fn(), transition: vi.fn(), contracts: vi.fn() } }));
 vi.mock("../../lib/authz", () => ({ getAccessToken: () => "synthetic-test-token" }));
 const auth = vi.hoisted(() => ({ permissions: ["hr:employees", "hr:employee:read", "hr:employment:transition"] }));
 vi.mock("../../lib/auth-context", () => ({ useAuthUser: () => ({ id: "synthetic-user", permissions: auth.permissions }) }));
@@ -28,6 +28,7 @@ beforeEach(() => {
     current = { ...current, employmentStatus: "action" in body && body.action === "suspend" ? "suspended" : "active" };
     return current;
   });
+  vi.mocked(hrApi.contracts).mockReset().mockResolvedValue({ items: [], total: 0, page: 1, page_size: 50 });
 });
 async function open() {
   render(<HrEmployeesClient />);
@@ -76,4 +77,12 @@ it("normal read-only employees do not gain a transition control", async () => {
   await screen.findByRole("heading", { name: "Synthetic transition · 员工详情" });
   expect(screen.queryByRole("button", { name: "确认办理并留痕" })).toBeNull();
   expect(hrApi.transition).not.toHaveBeenCalled();
+});
+it("employee contract card keeps a fixed-term missing end date neutral", async () => {
+  auth.permissions = ["hr:employees", "hr:employee:read", "hr:employment:transition", "hr:contract:read"];
+  vi.mocked(hrApi.contracts).mockResolvedValue({ items: [{ id: "fixed-term", contractNo: "SYN-FIXED", contractTypeName: "固定期限", startDate: "2026-10-17", endDate: null, contractTermMonths: 12, status: "active", isHistoricalImport: false }], total: 1, page: 1, page_size: 50 });
+  await open();
+  expect(await screen.findByText("2026-10-17 至 未登记")).toBeVisible();
+  expect(screen.getByText("固定期限")).toBeVisible();
+  expect(screen.queryByText("无固定期限")).toBeNull();
 });
