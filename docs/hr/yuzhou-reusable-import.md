@@ -393,3 +393,38 @@ CI 的 `HR Refresh Scope PostgreSQL` 作业使用同一合成 PostgreSQL 服务�
 来源行读取阶段在同一只读快照中恢复 `enable_nestloop=on`，观察阶段保留原设置。真实生产计划显示原行查询存在约138万行顺序扫描；恢复普通规划器选择后估算成本由117022降至6167。保持5秒查询、2秒锁超时和全部校验。`--explain` 同时输出两种行查询设置的脱敏非执行计划；不含表名、条件或人员行。生产准备成功仍以实际批次回执为准。
 
 完整观察认证在同一只读快照中复用：来源行阶段仅重复读取固定 ops/raw 与直接源回执、档案回执、员工和映射，不重算 T0 聚合归属图。完整集合、逐行摘要、唯一身份和归属、原始证书及补齐计划仍在任何文件产生前全部认证；5秒/2秒限制不变。直接读取本身不能作为认证，必须配合该同快照观察。真实 PostgreSQL 对照原查询验证同一完整信封，并拒绝阶段失败、T0回滚、回执篡改和重复档案。
+
+## 工资月份完整来源包（当前候选，发布状态以运行回执为准）
+
+工资使用独立的 `scripts/hr-cutover/build-yuzhou-payroll-source-package.mjs`，复用已保存的 T4 prepared manifest、账套成员、项目、公式、关账与工资文件。只选择指定月份，但认证完整文件；不重新分析 SQL Server 备份、不重跑历史 A/B。标准包保留原始空值、精确金额文本、项目声明属性和未解析公式。首版只接受有工资记录的账套；来源重复、未知字段和缺失关账证据会拒绝，不能自行猜测去重。
+
+执行顺序：
+
+1. 构建 shared，按正常迁移流程应用000377–000381；不得修改已经应用的迁移。
+2. 用已核验的 prepared manifest 和当前园区员工精确映射构包。先查询 `GET /api/v1/hr/imports/yuzhou/payroll/head?sourceInstance=固定来源实例&month=YYYY-MM`，把当前版本/hash填入构包参数；来源实例保持稳定。
+3. 操作员核对先前取得的 manifest SHA和本次已审定提取器 SHA。使用0600配置及0700父目录运行受控登记命令；登记读取原文件、验证完整选月结果，并只写不可变提取元数据，不批准工资规则。不能把刚读取的任意文件摘要直接当成独立认可凭据。
+4. 使用正常工资管理、工资复核和工资明细读取权限调用 `POST /api/v1/hr/imports/yuzhou/payroll/preview`，请求体为 `{ "package": 包内容 }`。预览及提交都需 `X-Idempotency-Key`；相同请求重试沿用原键，修改请求使用新键。
+5. 根据预览结果调用 `POST /api/v1/hr/imports/yuzhou/payroll/:id/commit`，再从 `GET /api/v1/hr/imports/yuzhou/payroll/:id`核对实际代号、回执和currentHead。整月事务、前驱名单和当前head校验共同防止漏覆盖及并发覆盖；原版本和现代输入、批准规则、已确认工资均保留。
+6. 在现代工资页选择该月来源，继续既有来源冻结、规则准备/独立审批、完整输入确认和全账套只算不发。导入成功不等于规则已批准、工资已核对或已发薪。
+
+命令入口：
+
+```sh
+pnpm --filter @jinhu/shared build
+node scripts/hr-cutover/register-yuzhou-payroll-source-extraction.mjs --describe-extractor
+node scripts/hr-cutover/build-yuzhou-payroll-source-package.mjs \
+  --prepared-root /private/yuzhou/t4 --manifest /private/yuzhou/t4/manifest.json \
+  --employee-map /private/yuzhou/employee-map.json --month YYYY-MM \
+  --source-instance yuzhou-v10 --expected-head-version 0 \
+  --output /private/yuzhou/new-month-package
+node scripts/hr-cutover/register-yuzhou-payroll-source-extraction.mjs \
+  --config /private/yuzhou/verified-extraction-config.json
+```
+
+首次head为0/null，上例仅适用于首次版本；已有来源必须使用实际head和 `--expected-head-hash`，不能照抄0。每次来源内容变化，都需对应完整内容的提取登记；没有变化的包及重试复用现有事实。登记与构包的目标范围、实例、月份、映射和来源文件必须一致。普通API不能自行登记“完整”。
+
+登记配置包含 `allowExtractionRegistration:true`、`targetScope`、`database`、`expectedDatabaseOid`、`preparedRoot`、`manifestPath`、`mappingPath`、`month`、`sourceInstance`、`expectedManifestSha256`、`expectedExtractorSha256`、当前head及私有 `receiptPath`。配置包含数据库凭据，不打印、不提交Git或上传公开日志。默认 `databaseTransport:loopback` 只连接本机；生产可在既有私网的受控容器运行，显式使用 `databaseTransport:docker_service` 和固定单标签数据库服务名。只读挂载已核验的源码、prepared文件和配置，私有回执目录允许写入；沿用现有网络和数据库端口，不新增公网或宿主机数据库端口，不自动发现或回退目标。连接后数据库名称/OID不匹配即拒绝。
+
+本地2026年7月正常JWT/API及现代页面验证覆盖两账套、93条记录、64人，应发93/实发93一致，分项金额差异0；桌面1440与手机390宽度无横向溢出。该记录是隔离技术验证，空值与扣补等政策仍为诊断候选，不能替代吴恩国确认、生产真实岗位验收或支付授权。
+
+隔离诊断脚本 `scripts/e2e/hr-payroll-july-source-journey.mjs --config /absolute/private-config.json` 的首次运行分两阶段：先通过正常API建立合成员工映射并保存 `employee-map.json`/`package.json`；如尚未受控登记，preview按预期拒绝，已完成的阶段仍保留。操作员用这些确切文件完成上述CLI登记后，使用原配置再次运行即可继续，不能换映射、删除检查或直接写批准事实。后续复验设置稳定的 `validationRevision` 以便同一轮可重试，而新构建使用新轮次并取得真正的新试算响应。此诊断脚本仅允许其明确owned的隔离库与loopback API，不用于生产。

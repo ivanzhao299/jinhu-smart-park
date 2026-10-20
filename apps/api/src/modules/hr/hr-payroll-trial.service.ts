@@ -1,4 +1,4 @@
-import { lockCurrentPayrollSource, PAYROLL_SOURCE_TABLES } from "./hr-payroll-frozen-source";
+import { lockCurrentPayrollSource, PAYROLL_SOURCE_TABLES, readCurrentPayrollSourceBatch } from "./hr-payroll-frozen-source";
 import { createHash } from "node:crypto";
 import { BadRequestException, ConflictException, ForbiddenException, Injectable } from "@nestjs/common";
 import { HR_PERMISSIONS, type PayrollTrialOptions, type PayrollTrialResult, type PayrollTrialRecord, type TenantParkScope } from "@jinhu/shared";
@@ -37,16 +37,8 @@ export class HrPayrollTrialService {
     await manager.query("SET LOCAL lock_timeout='2s'");
     await manager.query("SET LOCAL idle_in_transaction_session_timeout='30s'");
   }
-  private async receipt(manager: EntityManager, scope: TenantParkScope, batchId: string) {
-    const rows = await manager.query(`SELECT b.id FROM hr_payroll_legacy_batch b
-      JOIN hr_yuzhou_t4_followon_operation r ON r.operation_id=b.batch_code AND r.status='succeeded'
-        AND r.binding->'targetScope'->>'tenantId'=b.tenant_id AND r.binding->'targetScope'->>'parkId'=b.park_id
-        AND r.binding->'triple'->>'sourceSnapshotHash'=b.source_backup_hash::text
-      JOIN migration_batch c ON c.run_id=r.operation_id AND c.t4_followon_operation_id=r.operation_id
-        AND c.status='succeeded' AND c.target_database=current_database()
-      WHERE b.id=$3 AND b.tenant_id=$1 AND b.park_id=$2 AND NOT b.is_deleted AND b.status='staged' AND b.published_at IS NULL
-      FOR SHARE OF b,r,c`, [scope.tenantId, scope.parkId, batchId]);
-    if (rows.length !== 1) throw new ConflictException("Select a staged payroll source with a succeeded current-database receipt");
+  private async receipt(manager: EntityManager, scope: TenantParkScope, batchId: string, month: string) {
+    await readCurrentPayrollSourceBatch(manager, scope, batchId, month);
   }
   private async census(manager: EntityManager, scope: TenantParkScope, batchId: string, month: string): Promise<Census[]> {
     const rows: Census[] = await manager.query(`SELECT s.id,p.book_id AS "bookId",s.employee_id AS "employeeId",e.employee_code AS "employeeCode",e.full_name AS "fullName",
@@ -81,19 +73,19 @@ export class HrPayrollTrialService {
         FROM hr_payroll_legacy_batch b JOIN hr_payroll_legacy_snapshot s ON (s.batch_id,s.tenant_id,s.park_id)=(b.id,b.tenant_id,b.park_id)
         JOIN hr_payroll_book_period p ON (p.id,p.tenant_id,p.park_id)=(s.book_period_id,s.tenant_id,s.park_id)
         WHERE b.tenant_id=$1 AND b.park_id=$2 AND NOT b.is_deleted AND b.status='staged' AND b.published_at IS NULL
-        AND EXISTS(SELECT 1 FROM hr_yuzhou_t4_followon_operation r JOIN migration_batch c ON c.run_id=r.operation_id AND c.t4_followon_operation_id=r.operation_id AND c.status='succeeded' AND c.target_database=current_database()
-          WHERE r.operation_id=b.batch_code AND r.status='succeeded' AND r.binding->'targetScope'->>'tenantId'=b.tenant_id AND r.binding->'targetScope'->>'parkId'=b.park_id AND r.binding->'triple'->>'sourceSnapshotHash'=b.source_backup_hash::text)
+        AND NOT s.is_deleted AND NOT p.is_deleted
+        AND hr_payroll_source_is_current(b.tenant_id,b.park_id,b.id,p.period_month)
         GROUP BY b.id,b.batch_code,p.period_month ORDER BY p.period_month DESC,b.id LIMIT 501`, [scope.tenantId, scope.parkId]);
       if (periods.length > 500) throw new ConflictException("Payroll source period catalog exceeds the complete selection limit");
       const books: PayrollTrialOptions["books"] = [];
       let rows: Census[] = [];
       if (dto.legacyBatchId && dto.month) {
-        await this.receipt(manager, scope, dto.legacyBatchId);
+        await this.receipt(manager, scope, dto.legacyBatchId, dto.month);
         rows = await this.census(manager, scope, dto.legacyBatchId, dto.month);
         for (const bookId of [...new Set(rows.map(row => row.bookId))].sort()) {
           const records = rows.filter(row => row.bookId === bookId), first = records[0]!;
           const sources: PayrollTrialOptions["books"][number]["sources"] = await manager.query(`SELECT id,source_sha256 AS "sourceHash",snapshot_count AS "recordCount",item_count AS "itemCount"
-            FROM hr_payroll_reconciliation_source WHERE tenant_id=$1 AND park_id=$2 AND legacy_batch_id=$3 AND book_id=$4 AND period_month=$5::date ORDER BY created_at,id LIMIT 101`, [scope.tenantId, scope.parkId, dto.legacyBatchId, bookId, `${dto.month}-01`]);
+            FROM hr_payroll_reconciliation_source WHERE tenant_id=$1 AND park_id=$2 AND legacy_batch_id=$3 AND book_id=$4 AND period_month=$5::date AND hr_payroll_frozen_source_is_current(tenant_id,park_id,id) ORDER BY created_at,id LIMIT 101`, [scope.tenantId, scope.parkId, dto.legacyBatchId, bookId, `${dto.month}-01`]);
           const inputs: PayrollTrialOptions["books"][number]["inputs"] = await manager.query(`SELECT i.id,i.version,i.revision_no AS "revisionNo",i.rule_version_id AS "ruleVersionId",s.display_name AS "ruleName",jsonb_array_length(i.employees) AS "employeeCount",v.definition
             FROM hr_payroll_rule_set s JOIN hr_payroll_formal_input i ON (i.rule_set_id,i.tenant_id,i.park_id)=(s.id,s.tenant_id,s.park_id)
             JOIN hr_payroll_period p ON (p.id,p.tenant_id,p.park_id)=(i.period_id,i.tenant_id,i.park_id)
@@ -127,7 +119,7 @@ export class HrPayrollTrialService {
       // Builder 000319 requires READ COMMITTED. SHARE locks prevent phantoms and preserve
       // the entire census, item catalog and record ownership until audit + result commit.
       await manager.query(`LOCK TABLE ${PAYROLL_SOURCE_TABLES} IN SHARE MODE`);
-      await this.receipt(manager, scope, dto.legacyBatchId);
+      await this.receipt(manager, scope, dto.legacyBatchId, dto.month);
       const census = await this.census(manager, scope, dto.legacyBatchId, dto.month);
       const bookIds = [...new Set(census.map(row => row.bookId))].sort();
       if (JSON.stringify(bookIds) !== JSON.stringify(dto.books.map(book => book.bookId).sort())) throw new ConflictException("Select every payroll book in this source month; partial comparison is not complete");

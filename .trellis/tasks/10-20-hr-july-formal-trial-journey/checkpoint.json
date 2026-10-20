@@ -1,0 +1,236 @@
+{
+  "objective": "可重复月度工资来源接口与7月全部93条正常正式试算，持续推进完整HR现代化目标",
+  "acceptance": [
+    "typed monthly package builder/preview/atomic commit/status",
+    "idempotent immutable revisions/current-head CAS/T4 coexistence",
+    "no modern input/rule/confirmed payroll overwrite",
+    "real sameDB receipt and freeze/history/cohort/trial compatibility",
+    "93 records/64 persons/2295 values all populated books formal API flow",
+    "diagnostic policies separate from Wu business confirmation",
+    "desktop/390 and independent review"
+  ],
+  "workspace": "/Users/mac/.codex/worktrees/hr-payroll-monthly-ingress-20261020/jinhu-smart-park",
+  "baselineSha": "2fd4505f8ad8f89ac1ea42764c34ff01f9edaf55",
+  "status": "LOCAL_TECHNICAL_ACCEPTANCE_PASS_RELEASE_PENDING",
+  "activeRunHandle": "owned-api-pid:11832",
+  "writer": "root runtime/Web/journey/docs; monthly_payroll_full_check backend/shared/offline review",
+  "changedFiles": [
+    ".trellis/spec/api/backend/hr-payroll-reconciliation-source.md",
+    ".trellis/spec/api/backend/hr-payroll-source-period-discovery.md",
+    "apps/api/src/modules/hr/hr-payroll-frozen-source.ts",
+    "apps/api/src/modules/hr/hr-payroll-history.service.ts",
+    "apps/api/src/modules/hr/hr-payroll-trial.service.ts",
+    "apps/api/src/modules/hr/hr.module.ts",
+    "packages/shared/src/index.ts",
+    "scripts/diagnose-hr-payroll-readiness.mjs",
+    "scripts/diagnose-hr-payroll-source-coverage.mjs",
+    "scripts/e2e/hr-payroll-readiness.contract.mjs",
+    "scripts/e2e/hr-payroll-source-coverage.contract.mjs",
+    "apps/api/src/modules/hr/dto/yuzhou-payroll-source.dto.ts",
+    "apps/api/src/modules/hr/hr-yuzhou-payroll-baseline.pg.spec.ts",
+    "apps/api/src/modules/hr/hr-yuzhou-payroll-source-baseline.ts",
+    "apps/api/src/modules/hr/hr-yuzhou-payroll-source-projector.ts",
+    "apps/api/src/modules/hr/hr-yuzhou-payroll-source.controller.ts",
+    "apps/api/src/modules/hr/hr-yuzhou-payroll-source.pg.spec.ts",
+    "apps/api/src/modules/hr/hr-yuzhou-payroll-source.service.ts",
+    "database/migrations/000377_hr_yuzhou_payroll_source_ingress.sql",
+    "database/migrations/000378_hr_yuzhou_payroll_source_projection.sql",
+    "database/migrations/000379_hr_yuzhou_payroll_source_t4_anchor.sql",
+    "database/migrations/000380_hr_payroll_current_source_catalog.sql",
+    "packages/shared/src/hr-yuzhou-payroll-source.ts",
+    "scripts/e2e/yuzhou-payroll-source-package.contract.mjs",
+    "scripts/hr-cutover/build-yuzhou-payroll-source-package.mjs"
+  ],
+  "validation": {
+    "preparedSourceHashes": "PASS",
+    "julyNaturalKeys": "93 unique book/person, no duplicate/multiplicity",
+    "closeEvidence": "two populated books each one exact valid close row",
+    "employeeMapping": "PASS_REAL93_ORDINARY_EMPLOYEE_LIST_TO_SOURCE_CODES",
+    "dependencies": "offline frozen install exit0",
+    "baselineMigration": "PASS_FULL_SCHEMA_NORMAL_RUNNER",
+    "initialReadinessRetry": "Initial init-server pg_isready accepted too early; zero migration applied, retained failed log; target SELECT1 passed before retry",
+    "baselineProof": {
+      "normalRunnerExit": 0,
+      "applyMarkerCount": 378,
+      "query": "jinhu_hr_migration_lab_core_payrollfresh|378|0|0",
+      "newMigrationApplied": false,
+      "sourceDataLoaded": false,
+      "initialFailedAttemptRetained": true
+    },
+    "typedMigration": "PASS_APPLIED_AND_CHECKSUM_BOUND_OWNED_UPGRADE",
+    "foundationChecks": "implement reports package contract/shared build/API typecheck PASS; source-bound full logs pending",
+    "sourceValueKinds": {
+      "decimal": 793,
+      "null": 1288,
+      "text": 172,
+      "empty": 42
+    },
+    "realSourceOfflineProjection": {
+      "proof": "/Users/mac/.codex/artifacts/hr-july-formal-trial-journey-20261020/real-source-projection-proof.json",
+      "preservation": "/Users/mac/.codex/artifacts/hr-july-formal-trial-journey-20261020/real-source-value-preservation.json",
+      "records": 93,
+      "persons": 64,
+      "values": 2295,
+      "items": 50,
+      "formulas": 9,
+      "packageBytes": 399659,
+      "maxResidentBytes": 123961344,
+      "targetMappingVerified": false,
+      "importExecuted": false,
+      "trialExecuted": false
+    },
+    "backendMilestone": {
+      "owner": "root",
+      "newMigration": "000378_hr_yuzhou_payroll_source_projection.sql",
+      "status": "ROOT_SOURCE_ANCHOR_CATALOG_AND_COMPAT_PG_PASS",
+      "sourceFreezeCensus": "PASS_LOCAL_SYNTHETIC",
+      "existingCatalogReuse": "PASS_UNCHANGED_ORIGINAL_ROWS_AND_VERSIONS",
+      "real93Admitted": false
+    },
+    "projectorPg": {
+      "receipt": "/Users/mac/.codex/artifacts/hr-july-formal-trial-journey-20261020/projector-pg-receipt.json",
+      "status": "PASS",
+      "sourceBound": true,
+      "testCases": 1,
+      "coveredScenarios": 9,
+      "apiTypecheckExit": 0,
+      "targetedLintExit": 0
+    },
+    "typedSourceFreezeCohort": {
+      "status": "PASS",
+      "rawLog": "/Users/mac/.codex/artifacts/hr-july-formal-trial-journey-20261020/typed-source-freeze-cohort-locks.log",
+      "scope": "Actual service preview/commit, preview/freeze/read-cohort, frozen replay, scope/binding/count rejection, required audit rollback, both source import↔freeze lock directions and stale frozen evidence retained",
+      "normal378Upgrade": "PASS",
+      "actualReal93Http": "NOT_EXECUTED",
+      "finalReceipt": "/Users/mac/.codex/artifacts/hr-july-formal-trial-journey-20261020/typed-source-freeze-cohort-receipt.json"
+    },
+    "oldT4Regression": {
+      "status": "PASS_5_OF_5",
+      "receipt": "/Users/mac/.codex/artifacts/hr-july-formal-trial-journey-20261020/typed-source-freeze-cohort-receipt.json",
+      "testSourceUnchanged": true,
+      "failedAttemptRetained": true
+    },
+    "apiTypecheck": "PASS_CURRENT",
+    "targetedLint": "PASS_CURRENT",
+    "scopeHeadNoop": {
+      "status": "PASS",
+      "receipt": "/Users/mac/.codex/artifacts/hr-july-formal-trial-journey-20261020/scope-head-noop-receipt.json",
+      "real93Http": "NOT_EXECUTED",
+      "productionWrites": 0
+    },
+    "realSourceScopeBoundProjection": {
+      "status": "PASS",
+      "proof": "/Users/mac/.codex/artifacts/hr-july-formal-trial-journey-20261020/real-source-scope-bound-proof.json",
+      "records": 93,
+      "values": 2295,
+      "targetMappingVerified": false
+    },
+    "t4ReferenceAnchorCurrentCatalog": {
+      "status": "PASS_LOCAL_SYNTHETIC",
+      "receipt": "/Users/mac/.codex/artifacts/hr-july-formal-trial-journey-20261020/t4-anchor-current-source-receipt.json",
+      "originalT4Cases": 5,
+      "originalReadinessCoverageCases": 2,
+      "sourceAndAnchorCases": 2,
+      "contractCases": 11,
+      "real93Http": "NOT_EXECUTED"
+    },
+    "realSourceT4AlignedProjection": {
+      "status": "PASS",
+      "proof": "/Users/mac/.codex/artifacts/hr-july-formal-trial-journey-20261020/real-source-t4-aligned-proof.json",
+      "records": 93,
+      "values": 2295,
+      "targetMappingVerified": false
+    },
+    "real93NormalJwtHttp": {
+      "status": "PASS_FINAL381_FRESH_CALCULATION",
+      "receipt": "/Users/mac/.codex/artifacts/hr-july-formal-trial-journey-20261020/final-local-acceptance.json",
+      "records": 93,
+      "persons": 64,
+      "grossEqual": 93,
+      "netEqual": 93,
+      "differentLines": 0,
+      "formalRuns": 0,
+      "productionWrites": 0
+    },
+    "originalItemMetadata": {
+      "status": "PASS",
+      "attributes": 800,
+      "proof": "/Users/mac/.codex/artifacts/hr-july-formal-trial-journey-20261020/real-source-rich-metadata-proof.json"
+    },
+    "httpParser": {
+      "status": "PASS_6_OF_6",
+      "log": "/Users/mac/.codex/artifacts/hr-july-formal-trial-journey-20261020/payroll-http-parser-current-test.log"
+    },
+    "strictSavedPackage": {
+      "status": "PASS",
+      "receipt": "/Users/mac/.codex/artifacts/hr-july-formal-trial-journey-20261020/real93-strict-validator-receipt.json",
+      "packageRegenerated": false
+    },
+    "browser": {
+      "status": "PASS_LOCAL_REAL93_UI_TRIAL",
+      "normalAuthorLogin": true,
+      "books": 2,
+      "records": 93,
+      "persons": 64,
+      "grossEqual": 93,
+      "netEqual": 93,
+      "differentLines": 0,
+      "desktop": {
+        "width": 1440,
+        "scrollWidth": 1440
+      },
+      "mobile": {
+        "width": 390,
+        "scrollWidth": 390
+      },
+      "sourceOnlyAndNull": "retained, no blanket remediation instruction",
+      "productionWrites": 0,
+      "businessAcceptance": "UNVERIFIED",
+      "checkedAt": "2026-10-20T00:10:39.163Z"
+    },
+    "finalStrictPg": {
+      "source": "PASS_AFTER_FIXTURE_CANONICAL_HASH_CORRECTION",
+      "baseline": "PASS_UNCHANGED",
+      "logs": [
+        "final-strict-source-baseline-pg.log",
+        "final-strict-source-pg-retry.log"
+      ]
+    },
+    "apiRebuild": "PASS_FINAL_STRICT_PRE381",
+    "finalUiTypecheck": "PASS",
+    "finalLocalAcceptance": "/Users/mac/.codex/artifacts/hr-july-formal-trial-journey-20261020/final-local-acceptance.json",
+    "final381Pg": "PASS2_OF2",
+    "final381ControlledExtraction": "PASS",
+    "final381FreshKeyHttp": "PASS_ORIGINAL_REUSE_AND5_FORGED_VARIANTS_REJECTED"
+  },
+  "blocker": null,
+  "nextAction": "Fresh fetch/overlap gate, commit single coherent package, PR/CI/merge/deploy/runtime health and cleanup proof",
+  "fullGoalComplete": false,
+  "usage": "unavailable",
+  "previousGoalTurnClassification": "NO_PROGRESS_STATUS_REPORT_ONLY",
+  "activeRunHandles": {
+    "apiPid": 96335,
+    "runtimeReceipt": "/Users/mac/.codex/artifacts/hr-july-formal-trial-journey-20261020/current-run.json"
+  },
+  "ownedRuntimeReceipt": "/Users/mac/.codex/artifacts/hr-july-formal-trial-journey-20261020/current-run.json",
+  "currentRisks": [
+    "Independent whole-package source-integrity/adversarial check not yet passed",
+    "Actual modern payroll desktop390 acceptance pending",
+    "New fixes require runtime rebuild and evidence rebinding before release",
+    "Wu business policy confirmation and production real-role UAT remain unverified",
+    "Full HR functional parity/cutover/restore and independent-product final acceptance remain incomplete"
+  ],
+  "businessConfirmation": "Four explicit unapproved policy categories in business-confirmation-minimal.md",
+  "thisGoalTurnClassification": "PROGRESS_STRICT_REAL93_COMPATIBILITY_AND_JOURNEY_ACCEPTANCE_FIX",
+  "rootServiceFixEvidence": "/Users/mac/.codex/artifacts/hr-july-formal-trial-journey-20261020/root-service-fixes.json",
+  "normalApiFixture": {
+    "path": "/Users/mac/.codex/artifacts/hr-july-formal-trial-journey-20261020/diagnostic-employee-api-fixture-proof.json",
+    "records": 64,
+    "executed": false,
+    "noGuessedEmploymentDates": true,
+    "eligibility": "Existing explicit settlement window/reason for isolated candidates; not real employment proof"
+  },
+  "updatedAt": "2026-10-20T00:17:04.340032+00:00",
+  "historicalEvidenceBoundary": "Earlier validation entries retain their execution-time boundary. real93NormalJwtHttp supersedes prior NOT_EXECUTED milestones for the isolated lab only; production acceptance remains unverified.",
+  "currentRequiredGap": "No local product-code acceptance gap identified; release/runtime and Wu/production-role business acceptance pending"
+}

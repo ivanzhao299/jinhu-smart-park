@@ -6,7 +6,7 @@ import { Body, Controller, Module, Post } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import type { ClsService } from "nestjs-cls";
-import { YUZHOU_INCREMENTAL_MAX_PACKAGE_BYTES } from "@jinhu/shared";
+import { YUZHOU_INCREMENTAL_MAX_PACKAGE_BYTES, YUZHOU_PAYROLL_SOURCE_MAX_BYTES } from "@jinhu/shared";
 import { ApiExceptionFilter } from "../filters/api-exception.filter";
 import { createYuzhouIncrementalPreviewJsonParser } from "./yuzhou-incremental-preview-json-parser";
 
@@ -16,6 +16,11 @@ const previewPath = "/hr/imports/yuzhou/incremental/preview";
 class ParserProbeController {
   @Post("hr/imports/yuzhou/incremental/preview")
   preview(@Body() body: { payload: string }) {
+    return { length: body.payload.length, end: body.payload.slice(-4) };
+  }
+
+  @Post("hr/imports/yuzhou/payroll/preview")
+  payrollPreview(@Body() body: { payload: string }) {
     return { length: body.payload.length, end: body.payload.slice(-4) };
   }
 
@@ -178,5 +183,22 @@ test("production exception filter preserves safe scoped 413/400/415 responses", 
     // Record the existing global-filter behavior rather than widening this fix.
     const ordinary = await send(app, "/api/v1/ordinary", largeBody);
     assert.equal(ordinary.status, 500);
+  }, true);
+});
+
+
+test("payroll source preview accepts real-package sizes and bounded envelope, keeps scoped safe errors", async () => {
+  await withApp("api/v1", async app => {
+    const path = "/api/v1/hr/imports/yuzhou/payroll/preview";
+    for (const bytes of [450000, YUZHOU_PAYROLL_SOURCE_MAX_BYTES + 12])
+      assert.equal((await send(app, path, jsonOfSize(bytes))).status, 201);
+    for (const chunked of [false, true]) assert.equal((await send(app, path, jsonOfSize(YUZHOU_PAYROLL_SOURCE_MAX_BYTES + 13), { chunked })).status, 413);
+    const malformed = await send(app, path, '{"payload":"private-payroll-probe",}');
+    assert.equal(malformed.status, 400);
+    assert.equal(malformed.body.message, "Invalid payroll source import JSON body");
+    assert.ok(!JSON.stringify(malformed.body).includes("private-payroll-probe"));
+    for (const sibling of [path + "/sibling", path + "-sibling", "/other/hr/imports/yuzhou/payroll/preview"])
+      assert.equal((await send(app, sibling, jsonOfSize(450000))).status, 500);
+    assert.equal((await send(app, path, jsonOfSize(450000), { method: "PUT" })).status, 500);
   }, true);
 });

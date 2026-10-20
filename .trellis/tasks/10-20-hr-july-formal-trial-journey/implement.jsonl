@@ -1,0 +1,14 @@
+{"file": ".trellis/spec/api/backend/hr-management.md", "reason": "Normal scoped HR APIs and environment boundaries"}
+{"file": ".trellis/spec/api/backend/hr-payroll-formal-rules.md", "reason": "Rules inputs review immutable source and all-book trial contracts"}
+{"file": ".trellis/spec/api/backend/hr-payroll-formula-review-workflow.md", "reason": "Existing source formula review contracts"}
+{"file": ".trellis/spec/web/frontend/hr-payroll-rule-choice-csv.md", "reason": "Reuse complete local rule choices and modern authoring"}
+{"file": ".trellis/spec/web/frontend/hr-payroll-input-csv.md", "reason": "Reuse complete input drafts and independent confirmation"}
+{"file": ".trellis/spec/web/frontend/hr-payroll-input-readiness.md", "reason": "Preserve full source/cohort readiness and business labels"}
+{"file": ".trellis/spec/guides/index.md", "reason": "Cross-layer invariants and smallest necessary validation"}
+{"file": ".trellis/tasks/10-20-hr-july-formal-trial-journey/research/formal-flow-gap.md", "reason": "Current source/API/state gap and unapproved policy boundaries"}
+{"file": ".trellis/spec/api/backend/hr-payroll-reconciliation-source.md", "reason": "Monthly source ingress atomicity and complete formal flow compatibility"}
+{"file": ".trellis/spec/api/backend/hr-payroll-formal-trial-comparison.md", "reason": "Monthly source ingress atomicity and complete formal flow compatibility"}
+{"file": ".trellis/spec/api/backend/hr-payroll-source-period-discovery.md", "reason": "Monthly source ingress atomicity and complete formal flow compatibility"}
+{"file": ".trellis/spec/api/backend/yuzhou-reusable-staging-entry.md", "reason": "Monthly source ingress atomicity and complete formal flow compatibility"}
+{"file": ".trellis/tasks/10-20-hr-july-formal-trial-journey/research/payroll-delta-ingress-design.md", "reason": "Monthly source ingress atomicity and complete formal flow compatibility"}
+{"file": ".trellis/tasks/10-20-hr-july-formal-trial-journey/research/source-ingress-readiness.md", "reason": "Monthly source ingress atomicity and complete formal flow compatibility"}
