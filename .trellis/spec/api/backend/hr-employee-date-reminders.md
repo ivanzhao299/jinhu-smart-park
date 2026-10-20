@@ -46,6 +46,8 @@ Good: December31 and January1 occur within a cross-year window; narrow custom ro
 
 `hr-employee-reminder.spec.ts` exercises production preview dates and strict DTO/controller gates. `hr-employee-reminder.pg.spec.ts` uses original migration, real message service and random schema for concurrency, rollback, current membership/roles/relations, cross-home identity, HR downgrade, immutable actors/history and own inbox. Root alone runs DB/runtime writes. Web `hr-employee-date-reminders.test.tsx` covers exact entry, read-only filters/page2, stale context, explicit/current preview, stable uncertain retry, write-success/read-failure and delayed notification callbacks. Normal password HTTP in integrated and independent modes plus actual desktop/390px rendering are separate acceptance evidence. Independent install requires fresh, previous-step upgrade and replay checks. New restore acceptance requires a new paired snapshot containing these tables and current install manifest; old restore receipts do not apply.
 
+The reusable import interface recipe currently binds the entire shared `hr.ts` source. Any HR permission addition must regenerate `docs/hr/yuzhou-import-interface.v1.json` with the existing describe CLI and pass the published-interface contract. Review the JSON diff; permission-only changes update only recipeSha256 and do not authorize or rerun import.
+
 ## 7. Wrong vs Correct
 
 ```ts
