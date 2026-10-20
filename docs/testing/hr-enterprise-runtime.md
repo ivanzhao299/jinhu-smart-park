@@ -27,3 +27,7 @@
 完整人员办理可显式执行 `--phase=approved-personnel`，保持既有 `all` 分组不变。只能使用上述双运行时 owned 配置；分组在完成容器标签、端口及 schema 所有权检查后，通过正常管理员 API 准备员工、实际部门负责人、HR 办理员及独立调岗审核/生效人。集成权限目录必须完整分页，逐个核对所需权限；新员工通过正式任职确认进入在职状态。管理员仅用于准备，业务请求全部使用窄角色正常密码登录，不使用 super 或通配权限。
 
 该分组验证档案退回修订重提、部门批准、HR明确字段 patch、保留未提交字段与显式清空、原键回放与新键重复拒绝；随后验证批准任职申请生成唯一调岗单、独立审核生效、精确目标、本人任职回读及唯一事件/历史。申请和生效日期必须以 `YYYY-MM-DD` 回读，当天生效与上海业务日之后拒绝均实际执行；拒绝不得改变员工任职或新增事件。成功来源/目标句柄只保存于原私有配置供浏览器验收。申请人无审核权限的 HTTP403 与原 PostgreSQL maker/checker 回归分别报告，不能把前者当作服务层不能自审的证明。
+
+## Employee date reminders (2026-10-20)
+
+The independent installer appends common migration382 and step000009; fresh, prior-eight-step upgrade and replay must pass without park schema or business seed. Canonical permission metadata adds seven capabilities and the exact employee-reminders route. Normal-password narrow HR/self/unbound HTTP must exercise preview/generate/replay, own inbox, exact detail and action history. Random-schema PG also covers cross-home identities, tenant-wide permission storage and HR-to-self downgrade. A new paired restore snapshot is required for the new table/install-manifest set; earlier restore receipts do not prove this version. See `.trellis/spec/api/backend/hr-employee-date-reminders.md`.

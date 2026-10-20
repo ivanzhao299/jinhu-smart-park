@@ -38,6 +38,14 @@
     {
       "file": "database/hr-enterprise/000008_reminder_role_scope.sql",
       "sha256": "029deb2265e018bd56fb44a22963f64a5a96890b4dd3a5262f9ebf2f225ee0aa"
+    },
+    {
+      "file": "database/migrations/000382_hr_employee_date_reminders.sql",
+      "sha256": "436f97c7af0a29164ac1eac452109fc3aacc14886563e72720ebbc336107cf43"
+    },
+    {
+      "file": "database/hr-enterprise/000009_employee_date_reminder_permissions.sql",
+      "sha256": "05ce39e73524478698b29fdd82e5dd60cf37163df8994a9100df08fc5b34f514"
     }
   ]
 }

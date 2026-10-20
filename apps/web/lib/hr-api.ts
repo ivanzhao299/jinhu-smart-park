@@ -246,6 +246,41 @@ export interface HrContractType {id:string;typeCode:string;typeName:string;isHis
 export type HrContractReminderStatus="open"|"read"|"acknowledged"|"resolved"|"cancelled";
 export type HrContractReminderAction="read"|"acknowledge"|"resolve"|"cancel";
 export interface HrContractReminder {id:string;contractId:string;employeeId:string;kind:"contract_expiry"|"probation_expiry"|string;windowDays:number;dueDate:string;status:HrContractReminderStatus;}
+export type HrEmployeeReminderStatus = "open" | "read" | "acknowledged" | "resolved" | "cancelled";
+export type HrEmployeeReminderAction = "read" | "acknowledge" | "resolve" | "cancel";
+export type HrEmployeeReminderKind = "birthday" | "hire_anniversary";
+export type HrEmployeeReminderLeapPolicy = "skip" | "feb_28" | "mar_1";
+export type HrEmployeeReminderRecipient = "hr" | "manager" | "employee";
+export interface HrEmployeeReminderGenerateInput {
+  kind: HrEmployeeReminderKind;
+  windowDays: number;
+  leapDayPolicy: HrEmployeeReminderLeapPolicy;
+  recipients: HrEmployeeReminderRecipient[];
+  businessDate?: string;
+}
+export interface HrEmployeeReminder {
+  id: string;
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  kind: HrEmployeeReminderKind;
+  windowDays: number;
+  dueDate: string;
+  status: HrEmployeeReminderStatus;
+  leapDayPolicy: HrEmployeeReminderLeapPolicy;
+}
+export interface HrEmployeeReminderDetail extends HrEmployeeReminder {
+  cancelReason?: string | null;
+  actions: Array<{ sequence: number; action: HrEmployeeReminderAction; actorUserId: string | null; occurredAt: string }>;
+}
+export interface HrEmployeeReminderMessage {
+  id: string;
+  title: string;
+  content: string;
+  targetUrl: string | null;
+  readAt: string | null;
+  createTime: string;
+}
 export interface HrAttendanceDay {date:string;legacySymbol:string|null;symbolStatus:string;normalizedKind:string|null;}
 export interface HrAttendanceCalendar {id:string;calendarName:string|null;year:number;month:number;dayCount:number;days:HrAttendanceDay[];}
 export interface HrAttendanceRequest {id:string;editVersion?:number;amendVersion?:number;requestNo:string;requestType:string;leaveTypeId?:string|null;leaveTypeVersion?:number|null;leaveTypeName?:string|null;startAt:string|null;endAt:string|null;attendanceDate:string|null;durationMinutes:number;declaredDays?:number|null;legacyDeclaredDays:number|null;leavePlannedMinutes:number;leaveEffectiveMinutes:number;leaveDayCount:number;reason:string;status:string;submittedAt:string|null;reviewedAt:string|null;reviewComment:string|null;organizationName:string|null;isSelf:boolean;employeeId?:string;employeeCode?:string;employeeName?:string;}
@@ -597,6 +632,19 @@ export const hrApi={
  ,contractReminders:(token?:string,page=1,pageSize=100,status?:HrContractReminderStatus,signal?:AbortSignal,filters?:{kind?:"contract_expiry"|"probation_expiry";window_days?:number})=>{const query=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(status)query.set("status",status);if(filters?.kind)query.set("kind",filters.kind);if(filters?.window_days!==undefined)query.set("window_days",String(filters.window_days));return unwrap(apiRequest<PaginatedResult<HrContractReminder>&{active_sixty_day_total:number}>(`/hr/contract-reminders?${query.toString()}`,{token,signal}));}
  ,runContractReminders:(token?:string)=>unwrap(apiRequest<{created:number}>("/hr/contract-reminders/run",{method:"POST",token,idempotencyKey:createIdempotencyKey("hr-contract-reminder-run")}))
  ,actContractReminder:(id:string,action:HrContractReminderAction,token?:string)=>unwrap(apiRequest<{id:string;status:HrContractReminderStatus}>(`/hr/contract-reminders/${id}/actions`,{method:"POST",body:{action},token,idempotencyKey:createIdempotencyKey(`hr-contract-reminder-${action}`)}))
+ ,employeeReminders: (token?: string, page = 1, pageSize = 20, filters?: {status?: HrEmployeeReminderStatus; kind?: HrEmployeeReminderKind; window_days?: number}, signal?: AbortSignal) => {
+   const query = new URLSearchParams({page: String(page), page_size: String(pageSize)});
+   if (filters?.status) query.set("status", filters.status);
+   if (filters?.kind) query.set("kind", filters.kind);
+   if (filters?.window_days !== undefined) query.set("window_days", String(filters.window_days));
+   return unwrap(apiRequest<PaginatedResult<HrEmployeeReminder>>(`/hr/employee-reminders?${query}`, {token, signal}));
+ }
+ ,employeeReminder: (id: string, token?: string, signal?: AbortSignal) => unwrap(apiRequest<HrEmployeeReminderDetail>(`/hr/employee-reminders/${id}`, {token, signal}))
+ ,previewEmployeeReminders: (body: HrEmployeeReminderGenerateInput, token?: string, signal?: AbortSignal) => unwrap(apiRequest<{businessDate: string; matched: number; missingDate: number; noRecipient: number; leapDayPolicy: HrEmployeeReminderLeapPolicy}>("/hr/employee-reminders/preview", {method: "POST", body, token, signal, idempotencyKey: createIdempotencyKey("hr-employee-reminder-preview")}))
+ ,generateEmployeeReminders: (body: HrEmployeeReminderGenerateInput, token?: string, key = createIdempotencyKey("hr-employee-reminder-generate")) => unwrap(apiRequest<{created: number; matched: number; skippedNoRecipient: number}>("/hr/employee-reminders/generate", {method: "POST", body, token, idempotencyKey: key}))
+ ,actEmployeeReminder: (id: string, action: HrEmployeeReminderAction, token?: string, key = createIdempotencyKey(`hr-employee-reminder-${action}`)) => unwrap(apiRequest<{id: string; status: HrEmployeeReminderStatus}>(`/hr/employee-reminders/${id}/actions`, {method: "POST", body: {action}, token, idempotencyKey: key}))
+ ,employeeReminderMessages: (token?: string, page = 1, pageSize = 10, readStatus: "all" | "read" | "unread" = "all", signal?: AbortSignal) => unwrap(apiRequest<PaginatedResult<HrEmployeeReminderMessage>>(`/hr/employee-reminders/messages?${new URLSearchParams({page: String(page), page_size: String(pageSize), read_status: readStatus})}`, {token, signal}))
+ ,readEmployeeReminderMessage: (id: string, token?: string, key = createIdempotencyKey("hr-employee-reminder-message-read")) => unwrap(apiRequest<HrEmployeeReminderMessage>(`/hr/employee-reminders/messages/${id}/read`, {method: "POST", token, idempotencyKey: key}))
  ,createContract:(body:object,token?:string,idempotencyKey=crypto.randomUUID())=>unwrap(apiRequest<HrContract>("/hr/contracts",{method:"POST",body,token,idempotencyKey}))
  ,updateContract:(id:string,body:object,token?:string,idempotencyKey=crypto.randomUUID())=>unwrap(apiRequest<HrContract>(`/hr/contracts/${id}`,{method:"PUT",body,token,idempotencyKey}))
  ,reviewContractInformation:(id:string,body:object,token?:string,idempotencyKey=createIdempotencyKey("hr-contract-review-information"))=>unwrap(apiRequest<HrContract>(`/hr/contracts/${id}/review-information`,{method:"POST",body,token,idempotencyKey}))

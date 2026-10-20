@@ -72,6 +72,10 @@
     {
       "file": "database/seeds/production/000035_hr_insurance_owned_period_catalog.sql",
       "sha256": "d888f6e297807c480fa7219ab1c576c507f2a6ddb2e71aff8eac9ac832e0c241"
+    },
+    {
+      "file": "database/seeds/production/000044_hr_employee_date_reminders.sql",
+      "sha256": "c17a7556a9555e2b531799aeecca3c0d7bdae826001769b2119178dec33cdc98"
     }
   ],
   "permissions": [
@@ -557,6 +561,55 @@
       "resource": "hr",
       "action": "api",
       "route": null
+    },
+    {
+      "code": "hr:employee_reminder:ack",
+      "name": "确认员工重要日期提醒",
+      "resource": "hr.employee_reminder",
+      "action": "ack",
+      "route": null
+    },
+    {
+      "code": "hr:employee_reminder:manage",
+      "name": "管理员工重要日期提醒",
+      "resource": "hr.employee_reminder",
+      "action": "manage",
+      "route": null
+    },
+    {
+      "code": "hr:employee_reminder:park_read",
+      "name": "读取园区员工重要日期提醒",
+      "resource": "hr.employee_reminder",
+      "action": "park_read",
+      "route": null
+    },
+    {
+      "code": "hr:employee_reminder:run",
+      "name": "生成员工重要日期提醒",
+      "resource": "hr.employee_reminder",
+      "action": "run",
+      "route": null
+    },
+    {
+      "code": "hr:employee_reminder:self_read",
+      "name": "读取本人员工重要日期提醒",
+      "resource": "hr.employee_reminder",
+      "action": "self_read",
+      "route": null
+    },
+    {
+      "code": "hr:employee_reminder:team_read",
+      "name": "读取团队员工重要日期提醒",
+      "resource": "hr.employee_reminder",
+      "action": "team_read",
+      "route": null
+    },
+    {
+      "code": "hr:employee_reminders",
+      "name": "员工重要日期提醒",
+      "resource": "hr.employee_reminder",
+      "action": "page",
+      "route": "/hr/employee-reminders"
     },
     {
       "code": "hr:employee:manage",

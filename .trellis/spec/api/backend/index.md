@@ -1,5 +1,7 @@
 # @jinhu/api Backend Specs
 
+Birthday/hire-anniversary scoped reminders and own inbox: [Employee Date Reminders](./hr-employee-date-reminders.md).
+
 Approved profile explicit-field updates and intentional clears: [Approved Profile Field Preservation](./hr-approved-profile-field-preservation.md).
 
 Exact organization detail/update/delete visibility: [Organization Target Data Scope](./org-target-data-scope.md).

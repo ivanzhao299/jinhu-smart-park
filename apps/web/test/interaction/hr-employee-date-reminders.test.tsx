@@ -1,0 +1,111 @@
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { beforeEach, expect, it, vi } from "vitest";
+import { HR_PERMISSIONS as P } from "@jinhu/shared";
+import { HrEmployeeRemindersClient } from "../../app/hr/employee-reminders/HrEmployeeRemindersClient";
+import { reminderGenerationInput, reminderIdFromMessage, parseReminderEntry } from "../../app/hr/employee-reminders/employee-reminder-state";
+import { hrApi, type HrEmployeeReminder } from "../../lib/hr-api";
+const fixture = vi.hoisted(() => ({ user: { permissions: [] as string[], enabled_modules: [{ module_code: "hr", enabled: true }] }, replace: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: fixture.replace }) }));
+vi.mock("../../lib/auth-context", () => ({ useAuthUser: () => fixture.user }));
+vi.mock("../../lib/authz", () => ({ getAccessToken: () => "synthetic-token" }));
+vi.mock("../../lib/hr-api", () => ({ hrApi: { employeeReminders: vi.fn(), employeeReminder: vi.fn(), previewEmployeeReminders: vi.fn(), generateEmployeeReminders: vi.fn(), actEmployeeReminder: vi.fn(), employeeReminderMessages: vi.fn(), readEmployeeReminderMessage: vi.fn() } }));
+const id = "10000000-0000-4000-8000-000000000001", other = "10000000-0000-4000-8000-000000000002";
+const row = (extra: Partial<HrEmployeeReminder> = {}): HrEmployeeReminder => ({ id, employeeId: other, employeeName: "合成员工", employeeCode: "SYN-001", kind: "birthday", windowDays: 7, dueDate: "2026-12-31", status: "open", leapDayPolicy: "skip", ...extra });
+const page = <T,>(items: T[] = [], total = items.length, n = 1) => ({ items, total, page: n, page_size: 20 });
+beforeEach(() => {
+  vi.resetAllMocks();
+  fixture.user = { permissions: [P.HR_EMPLOYEE_REMINDERS_PAGE, P.HR_EMPLOYEE_REMINDER_SELF_READ, P.HR_EMPLOYEE_REMINDER_ACK], enabled_modules: [{ module_code: "hr", enabled: true }] };
+  vi.mocked(hrApi.employeeReminders).mockResolvedValue(page([row()]));
+  vi.mocked(hrApi.employeeReminderMessages).mockResolvedValue(page());
+  vi.mocked(hrApi.employeeReminder).mockResolvedValue({ ...row(), actions: [{ sequence: 1, action: "read", actorUserId: null, occurredAt: "2026-10-20T01:00:00Z" }] });
+  vi.mocked(hrApi.previewEmployeeReminders).mockResolvedValue({ businessDate: "2026-10-20", matched: 1, missingDate: 0, noRecipient: 0, leapDayPolicy: "skip" });
+});
+const change = (label: string, value: string) => fireEvent.change(screen.getByLabelText(label), { target: { value } });
+it("validates exact links and explicit generation choices", () => {
+  expect(parseReminderEntry([id, other]).invalid).toBe(true);
+  expect(reminderIdFromMessage(`/hr/employee-reminders?reminder=${id}&reminder=${other}`)).toBeNull();
+  expect(reminderIdFromMessage(`https://elsewhere/hr/employee-reminders?reminder=${id}`)).toBeNull();
+  expect(reminderIdFromMessage(`/hr/employee-reminders?reminder=${id}`)).toBe(id);
+  expect(reminderGenerationInput("birthday", "", "skip", ["hr"])).toBeNull();
+  expect(reminderGenerationInput("birthday", "366", "skip", ["hr"])).toBeNull();
+  expect(reminderGenerationInput("birthday", "7", "", ["hr"])).toBeNull();
+  expect(reminderGenerationInput("birthday", "7", "skip", [])).toBeNull();
+});
+it("read-only actors filter both kinds and page two does not reset", async () => {
+  vi.mocked(hrApi.employeeReminders).mockImplementation(async (_token, n = 1, _size, filters) => page([row({ employeeName: `合成${filters?.kind ?? "全部"}${n}` })], 25, n));
+  render(<HrEmployeeRemindersClient />);
+  await screen.findByText("合成全部1 · SYN-001");
+  expect(screen.queryByRole("heading", { name: "生成提醒" })).not.toBeInTheDocument();
+  change("筛选类型", "hire_anniversary"); await screen.findByText("合成hire_anniversary1 · SYN-001");
+  fireEvent.click(screen.getByRole("button", { name: /^下一页$/ }));
+  await screen.findByText("合成hire_anniversary2 · SYN-001");
+  expect(hrApi.employeeReminders).toHaveBeenLastCalledWith("synthetic-token", 2, 20, expect.objectContaining({ kind: "hire_anniversary", window_days: undefined }), expect.any(AbortSignal));
+});
+it("opens exact off-page reminder with history from the entry", async () => {
+  vi.mocked(hrApi.employeeReminders).mockResolvedValue(page());
+  render(<HrEmployeeRemindersClient initialReminder={id} />);
+  const detail = await screen.findByRole("region", { name: "提醒详情与办理记录" });
+  await within(detail).findByText("合成员工 · SYN-001");
+  expect(within(detail).getByText("第 1 步 · 标记已读")).toBeInTheDocument();
+  expect(hrApi.employeeReminder).toHaveBeenCalledWith(id, "synthetic-token", expect.any(AbortSignal));
+});
+it("ignores stale filter responses and clears rows when identity changes", async () => {
+  let resolve!: (value: ReturnType<typeof page<HrEmployeeReminder>>) => void;
+  vi.mocked(hrApi.employeeReminders).mockImplementationOnce(() => new Promise(done => { resolve = done; })).mockResolvedValue(page([row({ employeeName: "当前结果" })]));
+  const view = render(<HrEmployeeRemindersClient />);
+  change("筛选类型", "hire_anniversary"); await screen.findByText("当前结果 · SYN-001");
+  await act(async () => resolve(page([row({ employeeName: "旧请求" })])));
+  expect(screen.queryByText("旧请求 · SYN-001")).not.toBeInTheDocument();
+  fixture.user = { ...fixture.user, permissions: [] }; view.rerender(<HrEmployeeRemindersClient />);
+  expect(screen.queryByText("当前结果 · SYN-001")).not.toBeInTheDocument();
+});
+it("requires a current preview and keeps the original key after an ambiguous generation", async () => {
+  fixture.user.permissions.push(P.HR_EMPLOYEE_REMINDER_RUN);
+  vi.mocked(hrApi.generateEmployeeReminders).mockRejectedValueOnce(Error("lost receipt")).mockResolvedValueOnce({ created: 1, matched: 1, skippedNoRecipient: 0 });
+  render(<HrEmployeeRemindersClient />);
+  expect(screen.getByRole("button", { name: "生成并发送站内提醒" })).toBeDisabled();
+  change("2 月 29 日非闰年口径", "skip"); fireEvent.click(screen.getByLabelText("员工本人"));
+  fireEvent.click(screen.getByRole("button", { name: "预览提醒" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "生成并发送站内提醒" })).toBeEnabled());
+  change("提前天数", "8"); expect(screen.getByRole("button", { name: "生成并发送站内提醒" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "预览提醒" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "生成并发送站内提醒" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "生成并发送站内提醒" }));
+  await waitFor(() => expect(hrApi.generateEmployeeReminders).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(screen.getByRole("button", { name: "生成并发送站内提醒" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "生成并发送站内提醒" })); await screen.findByText(/已生成 1 条提醒/);
+  const calls = vi.mocked(hrApi.generateEmployeeReminders).mock.calls;
+  expect(calls[1]![2]).toBe(calls[0]![2]); expect(calls[1]![0]).toMatchObject({ recipients: ["employee"], windowDays: 8 });
+});
+it("keeps committed success when readback fails", async () => {
+  vi.mocked(hrApi.actEmployeeReminder).mockImplementation(async () => { vi.mocked(hrApi.employeeReminders).mockRejectedValue(Error("offline")); return { id, status: "acknowledged" }; });
+  render(<HrEmployeeRemindersClient initialReminder={id} />);
+  fireEvent.click(await screen.findByRole("button", { name: "确认收到" }));
+  await screen.findByText("确认收到已成功。"); await screen.findByText(/操作已成功，部分数据刷新失败/);
+  expect(hrApi.actEmployeeReminder).toHaveBeenCalledTimes(1);
+});
+it("opens only own HR message targets without the generic workorder inbox", async () => {
+  vi.mocked(hrApi.employeeReminderMessages).mockResolvedValue(page([{ id: other, title: "合成站内提醒", content: "请办理", targetUrl: `/hr/employee-reminders?reminder=${id}`, readAt: null, createTime: "2026-10-20T01:00:00Z" }]));
+  vi.mocked(hrApi.readEmployeeReminderMessage).mockResolvedValue({ id: other, title: "合成站内提醒", content: "请办理", targetUrl: `/hr/employee-reminders?reminder=${id}`, readAt: "2026-10-20T01:00:00Z", createTime: "2026-10-20T01:00:00Z" });
+  render(<HrEmployeeRemindersClient />);
+  fireEvent.click(await screen.findByRole("button", { name: "打开提醒详情" }));
+  await screen.findByRole("heading", { name: "提醒详情与办理记录" });
+  await waitFor(() => expect(hrApi.readEmployeeReminderMessage).toHaveBeenCalledTimes(1));
+  expect(fixture.replace).toHaveBeenCalledWith(`/hr/employee-reminders?reminder=${id}`, { scroll: false });
+});
+
+it("a delayed message read cannot overwrite the newly opened exact detail", async () => {
+  let resolve!: (value: Awaited<ReturnType<typeof hrApi.readEmployeeReminderMessage>>) => void;
+  const message = { id: other, title: "延迟消息", content: "请办理", targetUrl: `/hr/employee-reminders?reminder=${id}`, readAt: null, createTime: "2026-10-20T01:00:00Z" };
+  vi.mocked(hrApi.employeeReminderMessages).mockResolvedValue(page([message]));
+  vi.mocked(hrApi.readEmployeeReminderMessage).mockImplementation(() => new Promise(done => { resolve = done; }));
+  render(<HrEmployeeRemindersClient />);
+  fireEvent.click(await screen.findByRole("button", { name: "打开提醒详情" }));
+  const region = await screen.findByRole("region", { name: "提醒详情与办理记录" });
+  await within(region).findByText("第 1 步 · 标记已读");
+  await act(async () => resolve({ ...message, readAt: "2026-10-20T02:00:00Z" }));
+  await screen.findByText("站内消息已标记为已读。");
+  expect(within(region).getByText("合成员工 · SYN-001")).toBeInTheDocument();
+  expect(within(region).getByText("第 1 步 · 标记已读")).toBeInTheDocument();
+  expect(within(region).queryByText("正在读取提醒详情…")).not.toBeInTheDocument();
+});
