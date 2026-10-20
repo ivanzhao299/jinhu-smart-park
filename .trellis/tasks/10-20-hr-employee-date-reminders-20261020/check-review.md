@@ -57,3 +57,18 @@ HR_EMPLOYEE_REMINDER_PG_REQUIRED=1 POSTGRES_HOST=127.0.0.1 POSTGRES_PORT=<owned_
 - 本轮实际执行 `git diff --check`，通过。未重复已有8项Web交互、API/PG或构建。
 
 本轮源码复核未发现新增阻断。root提供的最新实际验收结果：桌面1440px的scrollWidth为1440、30张可见卡片；手机390px的scrollWidth为390；手机确认→完成→两步办理历史回读成功；8项Web交互通过；正常HTTP六角色旅程与独立fresh/upgrade/replay通过。以上运行/浏览器结果由root执行并保管合成数据证据，本检查代理不冒称亲自运行。
+
+
+## 配方指纹兼容性限定复核
+
+2026-10-20，针对 CI 39359382250 暴露的 `hr-prepared-profile-batch.repository.spec.ts` 实际producer准入失败，只读检查root的精确兼容修复；本轮仅追加本报告，不改产品或测试。
+
+结论：**追加精确 `e341182cfd19b611b5ee9c87f2775ad774d5d67cfeed17f1ff1605edc889ac33` 到既有 recipes Set 是正确的兼容修复，无新增阻断。** 不改为任意64位hash、不移除旧指纹；旧 `68eaaf18c72530cf88e8b05ec0e9cfaa48ed24e9c917a2c3a9e3b2a5edf7f0bb` 继续准入，并新增其冻结配方回归。
+
+- 已阅读root的纯路径/hash依赖审计证据 `import-fingerprint-dependency-audit.json`；另独立以当前文件和 `git show origin/main:<path>` 逐一比较29个ruleFiles及builder自身，共30输入。只有 `packages/shared/src/hr.ts` 改变，实际diff仅新增7个提醒权限定义；投影、映射、配方builder本身均未变化。独立按原canonical算法重算得到上述e341完整hash，且与 `docs/hr/yuzhou-import-interface.v1.json` 一致。
+- 已核对仓库整个准入/读取实现、实际producer测试及本次两文件diff。本次仅新增1个精确允许值及旧68回归值；collector/alias adapter精确指纹、固定scope、0700目录/0600文件/属主/无软链/单硬链约束、receipt与package摘要、字段白名单、baseline/alias顺序、HOLD、authorizationGranted=false、writerPresent=false等检查保持不变。原非法recipe、adapter、scope、顺序、计数、文件内容、文件权限与软链拒绝断言均未删除或减弱。
+- 搜索apps/packages/scripts/docs/database及当前任务目录的旧68和新e341完整指纹：有效硬编码消费者仅repository允许列表、对应回归及已同步的interface JSON。descriptor、collector和staging producer引用当前动态导出；alias batch沿用已校验input的recipe并绑定独立adapter摘要。未发现其他需要同步的指纹消费者。
+- 新回归通过重封合成receipt/preparation验证旧68准入，同时读取baseline/alias包；其目的是保留既有准备包兼容性，不声称旧producer所有字节在新运行时重现。实际当前producer用例继续验证新配方正常输出能够准入。
+- 此变更只允许识别一个经过依赖审计的新配方，不授予业务权限，不执行导入commit，不解除HOLD，不改变授权为false的要求。没有修改任何生产授权或写入入口。
+
+本轮实际执行：定向源码/diff检查、30输入逐项字节比较及配方摘要独立重算、全范围完整指纹消费者搜索、`git diff --check`；均满足上述结论。未重复单测或接口/producer契约，root负责执行并记录其结果；未读真实导入资料/私有凭据，未运行DB、服务或生产操作。本结论不替代后续CI通过证据。
