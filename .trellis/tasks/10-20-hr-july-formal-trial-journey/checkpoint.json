@@ -11,7 +11,7 @@
   ],
   "workspace": "/Users/mac/.codex/worktrees/hr-payroll-monthly-ingress-20261020/jinhu-smart-park",
   "baselineSha": "2fd4505f8ad8f89ac1ea42764c34ff01f9edaf55",
-  "status": "LOCAL_TECHNICAL_ACCEPTANCE_PASS_RELEASE_PENDING",
+  "status": "LOCAL_TECHNICAL_ACCEPTANCE_PASS_CI_TEST_FIX_READY",
   "activeRunHandle": "owned-api-pid:11832",
   "writer": "root runtime/Web/journey/docs; monthly_payroll_full_check backend/shared/offline review",
   "changedFiles": [
@@ -198,13 +198,15 @@
     },
     "apiRebuild": "PASS_FINAL_STRICT_PRE381",
     "finalUiTypecheck": "PASS",
-    "finalLocalAcceptance": "/Users/mac/.codex/artifacts/hr-july-formal-trial-journey-20261020/final-local-acceptance.json",
+    "finalLocalAcceptance": "/Users/mac/.codex/artifacts/hr-july-formal-trial-journey-20261020/final-local-acceptance-after-regression.json",
     "final381Pg": "PASS2_OF2",
     "final381ControlledExtraction": "PASS",
-    "final381FreshKeyHttp": "PASS_ORIGINAL_REUSE_AND5_FORGED_VARIANTS_REJECTED"
+    "final381FreshKeyHttp": "PASS_ORIGINAL_REUSE_AND5_FORGED_VARIANTS_REJECTED",
+    "originalReconciliationRegression": "PASS21_OF21_AFTER_STALE_SQL_MOCK_FIX",
+    "webHrRegression": "PASS261_OF261"
   },
   "blocker": null,
-  "nextAction": "Fresh fetch/overlap gate, commit single coherent package, PR/CI/merge/deploy/runtime health and cleanup proof",
+  "nextAction": "Push bounded regression correction onPR1015, wait full new CI, merge/deploy/runtime and posthealth cleanup",
   "fullGoalComplete": false,
   "usage": "unavailable",
   "previousGoalTurnClassification": "NO_PROGRESS_STATUS_REPORT_ONLY",
@@ -230,7 +232,12 @@
     "noGuessedEmploymentDates": true,
     "eligibility": "Existing explicit settlement window/reason for isolated candidates; not real employment proof"
   },
-  "updatedAt": "2026-10-20T00:17:04.340032+00:00",
+  "updatedAt": "2026-10-20T00:31:42.448566+00:00",
   "historicalEvidenceBoundary": "Earlier validation entries retain their execution-time boundary. real93NormalJwtHttp supersedes prior NOT_EXECUTED milestones for the isolated lab only; production acceptance remains unverified.",
-  "currentRequiredGap": "No local product-code acceptance gap identified; release/runtime and Wu/production-role business acceptance pending"
+  "currentRequiredGap": "No local product-code acceptance gap identified; release/runtime and Wu/production-role business acceptance pending",
+  "lastCi": {
+    "run": 39346959319,
+    "conclusion": "failure",
+    "specificCause": "Existing reconciliation mock contract drift; fixed21/21 locally, no product changes"
+  }
 }

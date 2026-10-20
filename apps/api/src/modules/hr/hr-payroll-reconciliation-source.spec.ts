@@ -7,6 +7,7 @@ import { validate } from "class-validator";
 import { DataSource, QueryFailedError } from "typeorm";
 import { HR_PERMISSIONS } from "@jinhu/shared";
 import { HrPayrollHistoryService } from "./hr-payroll-history.service";
+import { PAYROLL_SOURCE_TABLES } from "./hr-payroll-frozen-source";
 import { CreateHrPayrollReconciliationSourceDto, HrPayrollReconciliationSourcePeriodQueryDto } from "./dto/hr-payroll-history.dto";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type { AuditService } from "../audit/audit.service";
@@ -15,12 +16,46 @@ import { HR_PAYROLL_DSL_PARSER_VERSION, parsePayrollFormula } from "./hr-payroll
 const scope={tenantId:"fixture-tenant",parkId:"fixture-park"};
 const actor:JwtPrincipal={sub:"10000000-0000-4000-8000-000000000001",username:"fixture",roles:[],permissions:[HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_REVIEW],...scope};
 const dto:CreateHrPayrollReconciliationSourceDto={legacyBatchId:"20000000-0000-4000-8000-000000000001",bookId:"30000000-0000-4000-8000-000000000001",periodMonth:"2026-07-01",bindingSha256:"a".repeat(64),sourceSha256:"b".repeat(64),snapshotCount:1,itemCount:1,reason:"fixture review"};
-function fixture(failure?:string,auditFailure=false){
+type QueryCall = {sql:string;params?:unknown[]};
+function currentSourceQuery(sql:string,params:unknown[]|undefined,month=dto.periodMonth,current=true){
+ if(sql === `LOCK TABLE ${PAYROLL_SOURCE_TABLES} IN SHARE MODE`){assert.equal(params,undefined);return [];}
+ if(sql.startsWith("SELECT status,source_kind,published_at FROM hr_payroll_legacy_batch")){
+  assert.match(sql,/WHERE id=\$3 AND tenant_id=\$1 AND park_id=\$2 AND NOT is_deleted FOR SHARE/u);
+  assert.deepEqual(params,[scope.tenantId,scope.parkId,dto.legacyBatchId]);
+  return [{status:"staged",source_kind:"t4",published_at:null}];
+ }
+ if(sql.startsWith("SELECT batch.id FROM hr_payroll_legacy_batch batch")){
+  assert.match(sql,/receipt.status='succeeded'/u);assert.match(sql,/control.target_database=current_database\(\)/u);
+  assert.match(sql,/NOT EXISTS\(SELECT 1 FROM hr_yuzhou_payroll_source_head/u);
+  assert.match(sql,/head.period_month=\$4::date AND generation.legacy_batch_id<>batch.id/u);
+  assert.match(sql,/FOR SHARE OF batch,receipt,control/u);
+  assert.deepEqual(params,[scope.tenantId,scope.parkId,dto.legacyBatchId,month]);
+  return current?[{id:dto.legacyBatchId}]:[];
+ }
+ return undefined;
+}
+function assertCurrentSourceOrder(calls:QueryCall[],consumerPrefix:string){
+ const lock=calls.findIndex(c=>c.sql===`LOCK TABLE ${PAYROLL_SOURCE_TABLES} IN SHARE MODE`);
+ const batch=calls.findIndex(c=>c.sql.startsWith("SELECT status,source_kind,published_at"));
+ const receipt=calls.findIndex(c=>c.sql.startsWith("SELECT batch.id FROM hr_payroll_legacy_batch batch"));
+ const consumer=calls.findIndex(c=>c.sql.startsWith(consumerPrefix));
+ assert.ok(lock>=0&&batch>lock&&receipt>batch&&consumer>receipt,"fact locks and current scoped receipt must precede source consumption");
+}
+function fixture(failure?:string,auditFailure=false,current=true){
  const calls:Array<{sql:string;params?:unknown[]}>=[];let transactions=0;let auditCalls=0;
  const manager={query:async(sql:string,params?:unknown[])=>{
   calls.push({sql,params});
-  if(sql.includes("hr_freeze")&&failure)throw new QueryFailedError(sql,params??[],Object.assign(new Error("private row must never escape"),{code:failure}));
-  return [{id:"40000000-0000-4000-8000-000000000001"}];
+  if(sql === "SET LOCAL statement_timeout='15s'" || sql === "SET LOCAL lock_timeout='2s'")return [];
+  const source=currentSourceQuery(sql,params,dto.periodMonth,current);if(source!==undefined)return source;
+  if(sql.startsWith("SELECT source_kind FROM hr_payroll_legacy_batch")){
+   assert.match(sql,/status='staged' AND published_at IS NULL FOR SHARE/u);
+   assert.deepEqual(params,[dto.legacyBatchId,scope.tenantId,scope.parkId]);return [{source_kind:"t4"}];
+  }
+  if(sql.startsWith("SELECT hr_freeze_payroll_reconciliation_source(")){
+   if(failure)throw new QueryFailedError(sql,params??[],Object.assign(new Error("private row must never escape"),{code:failure}));
+   return [{id:"40000000-0000-4000-8000-000000000001"}];
+  }
+  throw new Error(`Unexpected freeze query: ${sql}`);
  }};
  const db={transaction:async(isolation:string,fn:(m:typeof manager)=>Promise<unknown>)=>{transactions++;assert.equal(isolation,"READ COMMITTED");return fn(manager);}};
  const audit={recordOperationRequired:async(input:Record<string,unknown>,m:unknown)=>{
@@ -43,17 +78,25 @@ test("available source months require review permission, validate the query, and
  assert.equal((await validate(plainToInstance(HrPayrollReconciliationSourcePeriodQueryDto,query))).length,0);
  for(const patch of [{legacyBatchId:"nope"},{page:0},{pageSize:101},{pageSize:1.2}]) assert.ok((await validate(plainToInstance(HrPayrollReconciliationSourcePeriodQueryDto,{...query,...patch}))).length>0);
  const calls:Array<{sql:string;params?:unknown[]}>=[];let auditManager:unknown;
- const manager={query:async(sql:string,params?:unknown[])=>{calls.push({sql,params});return sql.includes("WITH eligible")?[{periodMonth:"2026-07-01",recordCount:"2",mappedRecordCount:"1",unmappedRecordCount:"1",mappedEmployeeCount:"1",mappedItemCount:"3",total:"51"}]:[];}};
+ const manager={query:async(sql:string,params?:unknown[])=>{calls.push({sql,params});if(sql === "SET LOCAL statement_timeout='15s'" || sql === "SET LOCAL lock_timeout='2s'")return [];assert.ok(sql.startsWith("WITH scoped_snapshots AS"));return [{periodMonth:"2026-07-01",recordCount:"2",mappedRecordCount:"1",unmappedRecordCount:"1",mappedEmployeeCount:"1",mappedItemCount:"3",total:"51"}];}};
  const db={transaction:async(isolation:string,fn:(m:typeof manager)=>Promise<unknown>)=>{assert.equal(isolation,"READ COMMITTED");return fn(manager);}};
  const audit={recordOperationRequired:async(input:Record<string,unknown>,m:unknown)=>{auditManager=m;assert.equal(input.method,"GET");assert.equal(input.action,"读取可用工资来源月份");assert.deepEqual(input.afterJson,{bookId:query.bookId,page:2,pageSize:50,total:51});}};
  const service=new HrPayrollHistoryService(db as unknown as DataSource,audit as unknown as AuditService);
  await assert.rejects(()=>service.reconciliationSourcePeriods(scope,{...actor,permissions:[]},query),ForbiddenException);
  assert.equal(calls.length,0);
  assert.deepEqual(await service.reconciliationSourcePeriods(scope,actor,query),{items:[{periodMonth:"2026-07-01",recordCount:2,mappedRecordCount:1,unmappedRecordCount:1,mappedEmployeeCount:1,mappedItemCount:3}],total:51,page:2,pageSize:50});
- assert.equal(auditManager,manager);assert.match(calls.find(call=>call.sql.includes("WITH eligible"))!.sql,/migration_batch/);assert.match(calls.find(call=>call.sql.includes("WITH eligible"))!.sql,/scoped_snapshots/);
+ assert.equal(auditManager,manager);
+ const selection=calls.find(call=>call.sql.startsWith("WITH scoped_snapshots AS"))!;
+ assert.match(selection.sql,/hr_payroll_source_is_current\(snapshot.tenant_id,snapshot.park_id,snapshot.batch_id,period.period_month\)/u);
+ assert.match(selection.sql,/snapshot.batch_id=\$3 AND snapshot.tenant_id=\$1 AND snapshot.park_id=\$2/u);
+ assert.match(selection.sql,/period.book_id=\$4/u);assert.match(selection.sql,/totals LEFT JOIN paged ON true/u);
+ assert.deepEqual(selection.params,[scope.tenantId,scope.parkId,dto.legacyBatchId,dto.bookId,50,50]);
 });
 test("available source months do not escape when their required audit fails",async()=>{
- const manager={query:async(sql:string)=>sql.includes("WITH eligible")?[{total:"0"}]:[]};
+ const manager={query:async(sql:string)=>{
+  if(sql === "SET LOCAL statement_timeout='15s'" || sql === "SET LOCAL lock_timeout='2s'")return [];
+  assert.ok(sql.startsWith("WITH scoped_snapshots AS"));return [{periodMonth:null,total:"0"}];
+ }};
  const db={transaction:async(_isolation:string,fn:(m:typeof manager)=>Promise<unknown>)=>fn(manager)};
  const service=new HrPayrollHistoryService(db as unknown as DataSource,{recordOperationRequired:async()=>{throw new Error("audit unavailable");}} as unknown as AuditService);
  await assert.rejects(()=>service.reconciliationSourcePeriods(scope,actor,{legacyBatchId:dto.legacyBatchId,bookId:dto.bookId}),/audit unavailable/);
@@ -61,21 +104,35 @@ test("available source months do not escape when their required audit fails",asy
 test("preview returns only scoped metadata and keeps its audit in the read transaction",async()=>{
  const metadata={legacyBatchId:dto.legacyBatchId,bookId:dto.bookId,periodMonth:dto.periodMonth,bindingSha256:dto.bindingSha256,sourceSha256:dto.sourceSha256,snapshotCount:1,itemCount:1,employeeCount:1};
  const calls:Array<{sql:string;params?:unknown[]}>=[];
- const manager={query:async(sql:string,params?:unknown[])=>{calls.push({sql,params});return [metadata];}};
+ const manager={query:async(sql:string,params?:unknown[])=>{calls.push({sql,params});
+  if(sql === "SET LOCAL statement_timeout='15s'" || sql === "SET LOCAL lock_timeout='2s'")return [];
+  const source=currentSourceQuery(sql,params);if(source!==undefined)return source;
+  assert.ok(sql.startsWith("WITH candidate AS MATERIALIZED"));return [metadata];
+ }};
  const db={transaction:async(isolation:string,fn:(m:typeof manager)=>Promise<unknown>)=>{assert.equal(isolation,"READ COMMITTED");return fn(manager);}};
  const audit={recordOperationRequired:async(input:Record<string,unknown>,m:unknown)=>{assert.equal(m,manager);assert.equal(input.method,"GET");assert.deepEqual(input.afterJson,{snapshotCount:1,itemCount:1});}};
  const service=new HrPayrollHistoryService(db as unknown as DataSource,audit as unknown as AuditService);
  assert.deepEqual(await service.previewReconciliationSource(scope,actor,dto),metadata);
- assert.match(calls[2]!.sql,/MATERIALIZED/);assert.match(calls[2]!.sql,/hr_build_payroll_reconciliation_source/);
- assert.deepEqual(calls[2]!.params,[scope.tenantId,scope.parkId,dto.legacyBatchId,dto.bookId,dto.periodMonth]);
+ assertCurrentSourceOrder(calls,"WITH candidate AS MATERIALIZED");
+ const candidate=calls.find(c=>c.sql.startsWith("WITH candidate AS MATERIALIZED"))!;
+ assert.match(candidate.sql,/hr_build_current_payroll_reconciliation_source/u);
+ assert.deepEqual(candidate.params,[scope.tenantId,scope.parkId,dto.legacyBatchId,dto.bookId,dto.periodMonth]);
  assert.equal(calls.some(call=>/INSERT|UPDATE|DELETE/.test(call.sql)),false);
 });
 test("reviewer uses scoped parameterized transaction, bounded waits and atomic metadata audit",async()=>{
  const f=fixture();const result=await f.service.createReconciliationSource(scope,actor,dto);
  assert.match(f.calls[0]!.sql,/statement_timeout='15s'/);assert.match(f.calls[1]!.sql,/lock_timeout='2s'/);
- assert.deepEqual(f.calls[2]!.params,[scope.tenantId,scope.parkId,dto.legacyBatchId,dto.bookId,dto.periodMonth,dto.bindingSha256,dto.sourceSha256,1,1,actor.sub,dto.reason]);
+ assertCurrentSourceOrder(f.calls,"SELECT hr_freeze_payroll_reconciliation_source(");
+ assert.deepEqual(f.calls.find(c=>c.sql.startsWith("SELECT hr_freeze_payroll_reconciliation_source("))!.params,[scope.tenantId,scope.parkId,dto.legacyBatchId,dto.bookId,dto.periodMonth,dto.bindingSha256,dto.sourceSha256,1,1,actor.sub,dto.reason]);
  assert.equal(f.auditCalls,1);assert.equal(result.sourceSha256,dto.sourceSha256);
  assert.equal("frozen_input" in result,false);assert.equal("items" in result,false);
+});
+test("superseded source cannot be previewed or frozen before a new review",async()=>{
+ for(const method of ["previewReconciliationSource","createReconciliationSource"] as const){
+  const f=fixture(undefined,false,false);
+  await assert.rejects(()=>f.service[method](scope,actor,dto),/receipt is unavailable or superseded/u);
+  assert.equal(f.auditCalls,0);assert.equal(f.calls.some(c=>/hr_freeze|WITH candidate/.test(c.sql)),false);
+ }
 });
 test("source drift, timeout and deadlock become safe conflicts",async()=>{
  for(const code of ["P0001","55P03","57014","40P01","40001"]){
@@ -96,13 +153,28 @@ function simulationFixture(sourceMonth="2026-07-01",missingSource=false,insuranc
  const calls:Array<{sql:string;params?:unknown[]}>=[];
  const employee="50000000-0000-4000-8000-000000000001",sourceId="60000000-0000-4000-8000-000000000001";
  const expression="[人事系统.基本工资]+[人事系统.津贴]"+(trip?"+[人事系统.批准出差申报天数]":"")+(interval?`+[人事系统.${interval.kind==="overtime"?"批准加班区间分钟":"批准出差区间分钟"}]`:"")+(leave?"-[人事系统.批准请假分钟]/60":"")+(insuranceAmount !== undefined?"-[人事系统.养老保险个人金额]":""),parsed=parsePayrollFormula(expression);
+ const sourceState={current:true,hash:dto.sourceSha256};
  const snapshotJson=`[{"id":"70000000-0000-4000-8000-000000000001","employee_id":"${employee}","net_amount":900719925474.1234}]`;
  const itemJson='[{"snapshot_id":"70000000-0000-4000-8000-000000000001","item_version_id":"80000000-0000-4000-8000-000000000001","decimal_value":900719925474.1234,"value_type":"decimal","is_source_null":false,"is_deleted":false}]';
  const manager={query:async(sql:string,params?:unknown[])=>{
   calls.push({sql,params});
   if(sql.includes("FROM hr_attendance_payroll_input_batch b"))return [{id:"attendance",period_month:"2026-07-01",period_status:"closed",batch_status:"effective"}];
   if(sql.includes("SELECT id,status FROM hr_payroll_legacy_batch"))return [{id:dto.legacyBatchId,status:"staged"}];
-  if(sql.includes("FROM hr_payroll_reconciliation_source"))return missingSource?[]:[{id:sourceId,book_id:dto.bookId,period_month:sourceMonth,source_sha256:dto.sourceSha256,snapshots_json:snapshotJson,items_json:itemJson}];
+  const source=currentSourceQuery(sql,params,sourceMonth,sourceState.current);if(source!==undefined)return source;
+  if(sql.startsWith('SELECT id,legacy_batch_id AS "legacyBatchId"')){
+   assert.match(sql,/octet_length\(frozen_input::text\)<=16777216 FOR SHARE/u);
+   assert.deepEqual(params,[sourceId,scope.tenantId,scope.parkId]);
+   return [{id:sourceId,legacyBatchId:dto.legacyBatchId,bookId:dto.bookId,month:sourceMonth.slice(0,7),sourceHash:dto.sourceSha256,bindingHash:dto.bindingSha256,recordCount:1,itemCount:1,sourceKind:"t4"}];
+  }
+  if(sql.startsWith("SELECT encode(digest(hr_build_current_payroll_reconciliation_source(")){
+   assert.deepEqual(params,[scope.tenantId,scope.parkId,dto.legacyBatchId,dto.bookId,sourceMonth,dto.bindingSha256,1,1]);
+   return [{current_hash:sourceState.hash}];
+  }
+  if(sql.startsWith("SELECT id,book_id,period_month,source_sha256,")){
+   assert.match(sql,/AND legacy_batch_id=\$4 AND octet_length\(frozen_input::text\)<=16777216 FOR SHARE/u);
+   assert.deepEqual(params,[sourceId,scope.tenantId,scope.parkId,dto.legacyBatchId]);
+   return missingSource?[]:[{id:sourceId,book_id:dto.bookId,period_month:sourceMonth,source_sha256:dto.sourceSha256,snapshots_json:snapshotJson,items_json:itemJson}];
+  }
   if(sql.includes("SELECT f.id,f.book_id"))return [{id:"formula",book_id:dto.bookId,item_version_id:"item",raw_expression:expression,raw_condition:null,dsl_ast:parsed.ast,dependency_codes:parsed.dependencies,parser_version:parserOverride??parsed.parserVersion,calculation_order:1,item_code:"NET",item_category:"summary"}];
   if(sql.includes("AS x(id uuid"))return [{id:"snapshot",employee_id:employee,net_amount:"900719925474.1234",employee_version:1,book_id:dto.bookId}];
   if(sql.includes("FROM hr_payroll_reconciliation_policy_current cur"))return [{book_id:dto.bookId,policy_version_id:"policy",policy_version_no:1,net_item_version_id:"item",tolerance_amount:"0.0100",item_code:"NET",formula_version_id:"formula"}];
@@ -118,7 +190,7 @@ function simulationFixture(sourceMonth="2026-07-01",missingSource=false,insuranc
   throw new Error(`Unexpected simulation query: ${sql.slice(0,60)}`);
  }};
  const db={transaction:async(fn:(m:typeof manager)=>Promise<unknown>)=>fn(manager)};
- return {service:new HrPayrollHistoryService(db as unknown as DataSource,{} as AuditService),calls,sourceId,snapshotJson,itemJson};
+ return {service:new HrPayrollHistoryService(db as unknown as DataSource,{} as AuditService),calls,sourceId,snapshotJson,itemJson,sourceState};
 }
 test("staged history stays rejected without an explicit frozen source",async()=>{
  const f=simulationFixture();await assert.rejects(()=>f.service.simulateReconciliation(scope,{...actor,permissions:[HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_CALCULATE]},{legacyBatchId:dto.legacyBatchId,attendanceInputBatchId:actor.sub}),ConflictException);
@@ -130,8 +202,17 @@ test("wrong-period or foreign frozen source cannot fall back to live history",as
   assert.equal(f.calls.some(c=>c.sql.startsWith("INSERT")),false);
  }
 });
+test("superseded receipt or changed frozen content fails before formulas and result writes",async()=>{
+ for(const patch of [{current:false},{hash:"c".repeat(64)}]){
+  const f=simulationFixture();Object.assign(f.sourceState,patch);
+  await assert.rejects(()=>f.service.simulateReconciliation(scope,{...actor,permissions:[HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_CALCULATE]},{legacyBatchId:dto.legacyBatchId,attendanceInputBatchId:actor.sub,reconciliationSourceId:f.sourceId}),ConflictException);
+  assert.equal(f.calls.some(c=>c.sql.includes("SELECT f.id,f.book_id")||c.sql.startsWith("INSERT")),false);
+ }
+});
 test("frozen simulation uses JSON text, exact decimal evaluation, source binding and no payroll writes",async()=>{
  const f=simulationFixture();await f.service.simulateReconciliation(scope,{...actor,permissions:[HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_CALCULATE]},{legacyBatchId:dto.legacyBatchId,attendanceInputBatchId:actor.sub,reconciliationSourceId:f.sourceId});
+ assertCurrentSourceOrder(f.calls,"SELECT encode(digest(hr_build_current_payroll_reconciliation_source(");
+ assert.ok(f.calls.findIndex(c=>c.sql.startsWith("SELECT encode(digest("))<f.calls.findIndex(c=>c.sql.includes("SELECT f.id,f.book_id")),"current hash checked before calculation");
  assert.equal(f.calls.find(c=>c.sql.includes("AS x(id uuid"))!.params![0],f.snapshotJson);
  assert.equal(f.calls.find(c=>c.sql.includes("AS i(snapshot_id uuid"))!.params![0],f.itemJson);
  const inserted=f.calls.find(c=>c.sql.startsWith("INSERT INTO hr_payroll_reconciliation_result"))!;

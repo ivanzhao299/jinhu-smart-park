@@ -62,13 +62,14 @@ Extractor identity rechecked at final audit: `5b6d26312b2019d6aae6f2ab2d69f8b6f5
 
 ## Final reviewed product source inventory
 
-This inventory includes changed/untracked product source, scripts, tests and migrations in the active workspace; it excludes task prose and private artifacts. SHA256 of compact JSON mapping (sorted path keys) is `418f6749d14dcae09b8674b1cf3474a14fd32f92013eaa74c729767c9f00a2e5`.
+This inventory includes changed/untracked product source, scripts, tests and migrations in the active workspace; it excludes task prose and private artifacts. SHA256 of compact JSON mapping (sorted path keys) is `b811cecae723a9b33568fdb4f2bcd0ee5b6cb11398806afdf675726115c5fdbe`.
 
 ```json
 {
   "apps/api/src/modules/hr/dto/yuzhou-payroll-source.dto.ts": "312ba66d19c983c46d7d30c5ed332664e1dbe68f62e3ed27bc5d039a3b31ac57",
   "apps/api/src/modules/hr/hr-payroll-frozen-source.ts": "e1f0be5b661a5156b998703442a9ea3363f3d2ace7ad2b435f04d72d13a18c8b",
   "apps/api/src/modules/hr/hr-payroll-history.service.ts": "a15386a3c14e6f7fb5f7ad00f431a4d41c9f6248b1812bce00c3df2712b00536",
+  "apps/api/src/modules/hr/hr-payroll-reconciliation-source.spec.ts": "dc0b74b6cc8511fb8785b4f6da51fd03ee5d31964893d80767476eea3e773687",
   "apps/api/src/modules/hr/hr-payroll-trial.service.ts": "94c1804f42635578368cb94fa55487d0dffa8d26d87c47d61c5d150473d5a729",
   "apps/api/src/modules/hr/hr-yuzhou-payroll-baseline.pg.spec.ts": "e8ab54fa92bd27a748e058c0112f08990c8f3706e03b1fe871fafcf4c3d2eaed",
   "apps/api/src/modules/hr/hr-yuzhou-payroll-source-baseline.ts": "9eb683dc5be73600aedcb3b0842ab9f9e6d819449a4a1ae025bc1b316c348943",
@@ -100,3 +101,18 @@ This inventory includes changed/untracked product source, scripts, tests and mig
   "scripts/hr-cutover/register-yuzhou-payroll-source-extraction.mjs": "254428e4b67d2a0713a51f1e9c221383cd112e45eec494e5062408492c55b83c"
 }
 ```
+
+## PR1015 CI delta self-fix — existing reconciliation unit spec
+
+CI39346959319 exposed stale SQL mocks in the existing `hr-payroll-reconciliation-source.spec.ts`, previously omitted from the focused local set. The period discovery fixture matched the removed `WITH eligible` prefix and silently returned zero rows; preview/freeze mocks returned generic rows missing current-source metadata; simulation mocks rejected the new fact-table SHARE lock and did not distinguish the two frozen reads or authoritative current-content hash. These were test-contract drift, not evidence that the current-source SQL should be removed. Root separately audited product SQL.
+
+This delta changes only that spec and this report. The mocks now explicitly accept expected bounded-timeout/SHARE-lock queries, assert scoped parameters and succeeded current-database T4 receipts with supersession filtering, distinguish frozen raw JSON from current metadata, and provide the current-content hash. Unexpected queries still fail. Assertions verify fact lock → scoped batch → current receipt → preview/freeze/hash consumption, and hash verification before formulas. Two added tests reject superseded preview/freeze and superseded/hash-drift simulations before calculations or result writes. Original19 tests retain precision, audit failures, scope/binding, parser-version, insurance, leave, interval-millisecond and declared-day assertions.
+
+Executed after this delta:
+
+- From apps/api: `TS_NODE_TRANSPILE_ONLY=true node --test --require ts-node/register src/modules/hr/hr-payroll-reconciliation-source.spec.ts` — PASS21/21, zero skipped.
+- From repository root: `pnpm exec eslint apps/api/src/modules/hr/hr-payroll-reconciliation-source.spec.ts` — PASS.
+- `pnpm --filter @jinhu/api typecheck` — PASS.
+- `git diff --check` — PASS.
+
+No DB/runtime operation, product-source edit, commit or push. Current reviewed HEAD before this test fix: `80919d669d997979d6b2f667ba06f7d6fc973009`. Rechecked all32 prior inventory entries against disk: unchanged. Updated inventory now includes this spec (33 files), SHA `b811cecae723a9b33568fdb4f2bcd0ee5b6cb11398806afdf675726115c5fdbe`; spec SHA `dc0b74b6cc8511fb8785b4f6da51fd03ee5d31964893d80767476eea3e773687`. Full CI rerun remains root's release gate; local21/21 does not claim the entire CI suite passed.

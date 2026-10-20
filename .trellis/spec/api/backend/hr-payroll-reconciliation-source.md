@@ -112,3 +112,7 @@ Source/baseline PG specs assert exact registrations, rejection without proof, fo
 
 ### 7. Wrong vs Correct
 Wrong: accept evidenceSha256 as client proof, or read record.gross (absent from PayrollTrialRecord), or treat every source_null/source_only as historical remediation. Correct: match controlled full-content extraction; compute gross comparison from the unique gross-role result line; retain unused/null source facts and distinguish real operational gaps.
+
+### Existing reconciliation mock compatibility
+
+When changing source SQL/helper calls, run `hr-payroll-reconciliation-source.spec.ts` alongside the real PG source/baseline checks. Its strict fixtures must model both frozen reads, SHARE locks, scoped current receipts and the current-content hash. Update exact expected branches/parameters and assert refusal of superseded/hash-drift inputs before formulas or writes; never replace these fixtures with a blanket successful query response.
