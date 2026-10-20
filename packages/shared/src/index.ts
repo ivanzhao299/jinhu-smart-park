@@ -21,6 +21,7 @@ export * from "./hr";
 export * from "./business-scope";
 export * from "./hr-performance-legacy";
 export * from "./hr-yuzhou-incremental";
+export * from "./hr-yuzhou-payroll-source";
 export * from "./hr-yuzhou-initial-baseline";
 
 export interface ApiResponse<T> {

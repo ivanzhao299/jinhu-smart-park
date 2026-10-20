@@ -65,42 +65,31 @@ WITH active_books AS (
   SELECT batch.id,batch.batch_code,batch.source_backup_hash,batch.status,batch.published_at
   FROM hr_payroll_legacy_batch batch
   WHERE batch.tenant_id='10000001' AND batch.park_id='20000001' AND NOT batch.is_deleted
-), receipt_qualified_batches AS (
-  SELECT batch.id,batch.status,batch.published_at
-  FROM scoped_batches batch
-  JOIN hr_yuzhou_t4_followon_operation receipt ON receipt.operation_id=batch.batch_code
-    AND receipt.status='succeeded'
-    AND receipt.binding->'targetScope'->>'tenantId'='10000001'
-    AND receipt.binding->'targetScope'->>'parkId'='20000001'
-    AND receipt.binding->'triple'->>'sourceSnapshotHash'=batch.source_backup_hash::text
-  WHERE EXISTS(SELECT 1 FROM migration_batch control
-    WHERE control.run_id=receipt.operation_id AND control.t4_followon_operation_id=receipt.operation_id
-      AND control.status='succeeded' AND control.target_database=current_database())
+), source_months AS MATERIALIZED (
+  SELECT DISTINCT s.batch_id,p.period_month FROM hr_payroll_legacy_snapshot s
+  JOIN hr_payroll_book_period p ON (p.id,p.tenant_id,p.park_id)=(s.book_period_id,s.tenant_id,s.park_id)
+  JOIN scoped_batches batch ON batch.id=s.batch_id
+  WHERE s.tenant_id='10000001' AND s.park_id='20000001' AND NOT s.is_deleted AND NOT p.is_deleted
+), eligible_months AS MATERIALIZED (
+  SELECT batch_id,period_month FROM source_months
+  WHERE hr_payroll_source_is_current('10000001','20000001',batch_id,period_month)
 ), eligible_staged_batches AS (
-  SELECT id FROM receipt_qualified_batches WHERE status='staged' AND published_at IS NULL
+  SELECT DISTINCT batch_id AS id FROM eligible_months
 ), observed_snapshots AS (
   SELECT s.id,s.batch_id,s.mapping_status,s.employee_id,p.period_month,p.book_id
   FROM hr_payroll_legacy_snapshot s
   JOIN hr_payroll_book_period p ON p.id=s.book_period_id AND p.tenant_id=s.tenant_id AND p.park_id=s.park_id AND NOT p.is_deleted
   JOIN active_books book ON book.id=p.book_id
   WHERE s.tenant_id='10000001' AND s.park_id='20000001' AND NOT s.is_deleted
-    AND (s.batch_id IN(SELECT id FROM eligible_staged_batches)
+    AND (EXISTS(SELECT 1 FROM eligible_months eligible WHERE eligible.batch_id=s.batch_id AND eligible.period_month=p.period_month)
       OR s.batch_id IN(SELECT id FROM scoped_batches WHERE status='published'))
 ), qualified_sources AS (
   SELECT source.id,source.legacy_batch_id,source.book_id,source.period_month
   FROM hr_payroll_reconciliation_source source
   JOIN active_books book ON book.id=source.book_id
   JOIN scoped_batches batch ON batch.id=source.legacy_batch_id
-  JOIN hr_yuzhou_t4_followon_operation receipt ON receipt.operation_id=source.operation_id
-    AND receipt.status='succeeded' AND receipt.binding_sha256=source.binding_sha256
-    AND receipt.binding->'targetScope'->>'tenantId'=source.tenant_id
-    AND receipt.binding->'targetScope'->>'parkId'=source.park_id
-    AND receipt.binding->'triple'->>'sourceSnapshotHash'=batch.source_backup_hash::text
   WHERE source.tenant_id='10000001' AND source.park_id='20000001'
-    AND batch.status='staged' AND batch.published_at IS NULL
-    AND EXISTS(SELECT 1 FROM migration_batch control WHERE control.run_id=source.operation_id
-      AND control.t4_followon_operation_id=source.operation_id AND control.status='succeeded'
-      AND control.target_database=current_database())
+    AND hr_payroll_frozen_source_is_current(source.tenant_id,source.park_id,source.id)
 ), observed_months AS (
   SELECT period_month FROM observed_snapshots
   UNION SELECT period_month FROM qualified_sources

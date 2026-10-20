@@ -1,4 +1,5 @@
 import { projectApprovedLeavePayrollInput, projectApprovedIntervalPayrollInput, projectApprovedTripDeclaredDaysPayrollInput } from "./hr-payroll-attendance-input";
+import { PAYROLL_SOURCE_TABLES, readCurrentPayrollSourceBatch, lockCurrentPayrollSource } from "./hr-payroll-frozen-source";
 import {
   BadRequestException,
   ConflictException,
@@ -49,6 +50,7 @@ import {
 } from "./hr-access-policy";
 import {
   recordHrSensitiveRead,
+  buildHrSensitiveReadAuditInput,
   type HrSensitiveReadAuditDetails,
 } from "./hr-sensitive-read-audit";
 import {
@@ -503,48 +505,47 @@ export class HrPayrollHistoryService {
 
   async reconciliationSetup(scope: TenantParkScope, actor: JwtPrincipal) {
     this.requireReconciliationRead(actor);
-    const books = (await this.dataSource.query(
+    return this.dataSource.transaction("REPEATABLE READ", async manager => {
+    await manager.query("SET LOCAL statement_timeout='15s'");
+    await manager.query("SET LOCAL lock_timeout='2s'");
+    const books = (await manager.query(
       `SELECT b.id,b.book_name AS "bookName",b.legacy_scheme AS "legacyScheme",p.id AS "policyVersionId",p.net_item_version_id AS "netItemVersionId",item.display_name AS "netItemName",p.tolerance_amount AS "toleranceAmount",p.version_no AS "policyVersion" FROM hr_payroll_book b LEFT JOIN hr_payroll_reconciliation_policy_current cur ON cur.tenant_id=b.tenant_id AND cur.park_id=b.park_id AND cur.book_id=b.id LEFT JOIN hr_payroll_reconciliation_policy_version p ON p.id=cur.policy_version_id AND p.tenant_id=cur.tenant_id AND p.park_id=cur.park_id AND p.book_id=cur.book_id LEFT JOIN hr_payroll_item_version item ON item.id=p.net_item_version_id AND item.tenant_id=p.tenant_id AND item.park_id=p.park_id WHERE b.tenant_id=$1 AND b.park_id=$2 AND b.is_deleted=false ORDER BY b.legacy_scheme,b.id LIMIT 100`,
       [scope.tenantId, scope.parkId],
     )) as RawRow[];
-    const netItems = (await this.dataSource.query(
+    const netItems = (await manager.query(
       `SELECT DISTINCT definition.book_id AS "bookId",version.id,version.display_name AS "displayName",definition.item_code AS "itemCode",version.version_no AS "versionNo" FROM hr_payroll_formula_version formula JOIN hr_payroll_item_version version ON version.id=formula.item_version_id AND version.tenant_id=formula.tenant_id AND version.park_id=formula.park_id JOIN hr_payroll_item_definition definition ON definition.id=version.item_definition_id AND definition.tenant_id=version.tenant_id AND definition.park_id=version.park_id WHERE formula.tenant_id=$1 AND formula.park_id=$2 AND formula.parse_status='approved_for_simulation' AND formula.is_deleted=false AND version.enabled=true AND version.value_type='decimal' AND version.is_deleted=false AND definition.is_deleted=false ORDER BY definition.book_id,version.display_name,version.id LIMIT 500`,
       [scope.tenantId, scope.parkId],
     )) as RawRow[];
-    const legacyBatches = (await this.dataSource.query(
+    const legacyBatches = (await manager.query(
       `SELECT id,batch_code AS "batchCode",source_row_count AS "sourceRowCount",published_at AS "publishedAt" FROM hr_payroll_legacy_batch WHERE tenant_id=$1 AND park_id=$2 AND status='published' AND is_deleted=false ORDER BY published_at DESC,id DESC LIMIT 100`,
       [scope.tenantId, scope.parkId],
     )) as RawRow[];
-    const attendanceBatches = (await this.dataSource.query(
+    const attendanceBatches = (await manager.query(
       `SELECT batch.id,batch.batch_no AS "batchNo",period.period_month AS "periodMonth",batch.batch_type AS "batchType" FROM hr_attendance_payroll_input_batch batch JOIN hr_attendance_period period ON period.id=batch.period_id AND period.tenant_id=batch.tenant_id AND period.park_id=batch.park_id WHERE batch.tenant_id=$1 AND batch.park_id=$2 AND batch.status='effective' AND batch.is_deleted=false AND period.status='closed' AND period.is_deleted=false ORDER BY period.period_month DESC,batch.batch_no DESC LIMIT 100`,
       [scope.tenantId, scope.parkId],
     )) as RawRow[];
-    const sourceBatches = this.has(actor, HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_REVIEW) ? (await this.dataSource.query(
-      `SELECT b.id,b.create_time AS "createdAt",b.loaded_row_count AS "recordCount"
-       FROM hr_payroll_legacy_batch b JOIN hr_yuzhou_t4_followon_operation receipt
-         ON receipt.operation_id=b.batch_code AND receipt.status='succeeded'
-       JOIN migration_batch control ON control.run_id=receipt.operation_id
-         AND control.t4_followon_operation_id=receipt.operation_id AND control.status='succeeded'
-         AND control.target_database=current_database()
-       WHERE b.tenant_id=$1 AND b.park_id=$2 AND b.status='staged' AND b.is_deleted=false
-         AND receipt.binding->'targetScope'->>'tenantId'=b.tenant_id
-         AND receipt.binding->'targetScope'->>'parkId'=b.park_id
-       ORDER BY b.create_time DESC,b.id DESC LIMIT 100`, [scope.tenantId,scope.parkId],
+    const sourceBatches = this.has(actor, HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_REVIEW) ? (await manager.query(
+      `SELECT b.id,b.create_time AS "createdAt",count(snapshot.id)::int AS "recordCount"
+       FROM hr_payroll_legacy_batch b JOIN hr_payroll_legacy_snapshot snapshot
+         ON (snapshot.batch_id,snapshot.tenant_id,snapshot.park_id)=(b.id,b.tenant_id,b.park_id)
+       JOIN hr_payroll_book_period period ON (period.id,period.tenant_id,period.park_id)=
+         (snapshot.book_period_id,snapshot.tenant_id,snapshot.park_id)
+       WHERE b.tenant_id=$1 AND b.park_id=$2 AND NOT snapshot.is_deleted AND NOT period.is_deleted
+         AND hr_payroll_source_is_current(b.tenant_id,b.park_id,b.id,period.period_month)
+       GROUP BY b.id,b.create_time ORDER BY b.create_time DESC,b.id DESC LIMIT 100`, [scope.tenantId,scope.parkId],
     )) as RawRow[] : [];
-    const frozenSources = (await this.dataSource.query(
+    const frozenSources = (await manager.query(
       `SELECT source.id,source.legacy_batch_id AS "legacyBatchId",source.book_id AS "bookId",
          book.book_name AS "bookName",source.period_month AS "periodMonth",
          source.snapshot_count AS "snapshotCount",source.item_count AS "itemCount"
        FROM hr_payroll_reconciliation_source source
        JOIN hr_payroll_book book ON book.id=source.book_id AND book.tenant_id=source.tenant_id AND book.park_id=source.park_id
-       JOIN hr_yuzhou_t4_followon_operation receipt ON receipt.operation_id=source.operation_id
-         AND receipt.status='succeeded' AND receipt.binding_sha256=source.binding_sha256
-       JOIN migration_batch control ON control.run_id=source.operation_id AND control.status='succeeded'
-         AND control.t4_followon_operation_id=source.operation_id AND control.target_database=current_database()
-       WHERE source.tenant_id=$1 AND source.park_id=$2 ORDER BY source.created_at DESC,source.id DESC LIMIT 100`,
+       WHERE source.tenant_id=$1 AND source.park_id=$2
+         AND hr_payroll_frozen_source_is_current(source.tenant_id,source.park_id,source.id)
+       ORDER BY source.created_at DESC,source.id DESC LIMIT 100`,
       [scope.tenantId,scope.parkId],
     )) as RawRow[];
-    await this.audit(scope, actor, {
+    await this.auditService.recordOperationRequired(buildHrSensitiveReadAuditInput(scope, actor, {
       resource: "hr.payroll_reconciliation_setup",
       action: "读取工资双轨候选",
       bizType: "hr_payroll_reconciliation_policy_version",
@@ -557,8 +558,9 @@ export class HrPayrollHistoryService {
         netItems.length +
         legacyBatches.length +
         attendanceBatches.length + sourceBatches.length + frozenSources.length,
-    });
+    }), manager);
     return { books, netItems, legacyBatches, attendanceBatches, sourceBatches, frozenSources };
+    });
   }
 
   private async sourceTransaction<T>(work: (manager: EntityManager) => Promise<T>): Promise<T> {
@@ -582,9 +584,11 @@ export class HrPayrollHistoryService {
     if (!this.has(actor, HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_REVIEW))
       throw new ForbiddenException("Payroll reconciliation review permission is required");
     return this.sourceTransaction(async (manager) => {
+      await manager.query(`LOCK TABLE ${PAYROLL_SOURCE_TABLES} IN SHARE MODE`);
+      await readCurrentPayrollSourceBatch(manager, scope, dto.legacyBatchId, dto.periodMonth);
       const rows = (await manager.query(
         `WITH candidate AS MATERIALIZED (
-          SELECT hr_build_payroll_reconciliation_source($1,$2,$3,$4,$5::date) AS payload
+          SELECT hr_build_current_payroll_reconciliation_source($1,$2,$3,$4,$5::date) AS payload
         ) SELECT payload->>'legacyBatchId' AS "legacyBatchId",payload->>'bookId' AS "bookId",
           payload->>'periodMonth' AS "periodMonth",payload->>'bindingSha256' AS "bindingSha256",
           encode(digest(payload::text,'sha256'),'hex') AS "sourceSha256",
@@ -611,19 +615,13 @@ export class HrPayrollHistoryService {
     if (!this.has(actor, HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_REVIEW)) throw new ForbiddenException("Payroll reconciliation review permission is required");
     const page=q.page??1,pageSize=q.pageSize??50,offset=(page-1)*pageSize;
     return this.sourceTransaction(async manager=>{
-      const rows=await manager.query(`WITH eligible AS (
-        SELECT legacy.id FROM hr_payroll_legacy_batch legacy
-        JOIN hr_yuzhou_t4_followon_operation receipt ON receipt.operation_id=legacy.batch_code AND receipt.status='succeeded'
-          AND receipt.binding->'targetScope'->>'tenantId'=legacy.tenant_id AND receipt.binding->'targetScope'->>'parkId'=legacy.park_id
-          AND receipt.binding->'triple'->>'sourceSnapshotHash'=legacy.source_backup_hash::text
-        WHERE legacy.id=$3 AND legacy.tenant_id=$1 AND legacy.park_id=$2 AND NOT legacy.is_deleted AND legacy.status='staged' AND legacy.published_at IS NULL
-          AND EXISTS(SELECT 1 FROM migration_batch control WHERE control.run_id=receipt.operation_id AND control.t4_followon_operation_id=receipt.operation_id AND control.target_database=current_database() AND control.status='succeeded')
-      ), scoped_snapshots AS (
+      const rows=await manager.query(`WITH scoped_snapshots AS (
         SELECT snapshot.id,snapshot.tenant_id,snapshot.park_id,snapshot.book_period_id,snapshot.mapping_status,snapshot.employee_id,period.period_month
         FROM hr_payroll_legacy_snapshot snapshot
         JOIN hr_payroll_book_period period ON period.id=snapshot.book_period_id AND period.tenant_id=snapshot.tenant_id AND period.park_id=snapshot.park_id AND NOT period.is_deleted
         JOIN hr_payroll_book book ON book.id=period.book_id AND book.tenant_id=period.tenant_id AND book.park_id=period.park_id AND NOT book.is_deleted
-        WHERE snapshot.batch_id IN(SELECT id FROM eligible) AND snapshot.tenant_id=$1 AND snapshot.park_id=$2 AND NOT snapshot.is_deleted AND period.book_id=$4
+        WHERE snapshot.batch_id=$3 AND snapshot.tenant_id=$1 AND snapshot.park_id=$2 AND NOT snapshot.is_deleted AND period.book_id=$4
+          AND hr_payroll_source_is_current(snapshot.tenant_id,snapshot.park_id,snapshot.batch_id,period.period_month)
       ), item_counts AS (
         SELECT item.snapshot_id,item.tenant_id,item.park_id,count(*)::int item_count
         FROM hr_payroll_legacy_snapshot_item item
@@ -655,10 +653,20 @@ export class HrPayrollHistoryService {
     if (!this.has(actor, HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_REVIEW))
       throw new ForbiddenException("Payroll reconciliation review permission is required");
       return this.sourceTransaction(async (manager) => {
+        await manager.query(`LOCK TABLE ${PAYROLL_SOURCE_TABLES} IN SHARE MODE`);
+        await readCurrentPayrollSourceBatch(manager, scope, dto.legacyBatchId, dto.periodMonth);
+        const [batch] = await manager.query("SELECT source_kind FROM hr_payroll_legacy_batch WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND status='staged' AND published_at IS NULL FOR SHARE", [dto.legacyBatchId, scope.tenantId, scope.parkId]) as Array<{source_kind:string}>;
+        if (!batch) throw new ConflictException("Payroll source batch is unavailable");
+        if (batch.source_kind === "payroll_source_v1") {
+          await manager.query("SELECT hr_build_current_payroll_reconciliation_source($1,$2,$3,$4,$5::date,$6,$7,$8)->>'bindingSha256' AS binding", [scope.tenantId, scope.parkId, dto.legacyBatchId, dto.bookId, dto.periodMonth, dto.bindingSha256, dto.snapshotCount, dto.itemCount]);
+        }
         const rows = (await manager.query(
-          "SELECT hr_freeze_payroll_reconciliation_source($1,$2,$3,$4,$5::date,$6,$7,$8,$9,$10,$11) AS id",
-          [scope.tenantId, scope.parkId, dto.legacyBatchId, dto.bookId, dto.periodMonth,
-            dto.bindingSha256, dto.sourceSha256, dto.snapshotCount, dto.itemCount, actor.sub, dto.reason],
+          batch.source_kind === "payroll_source_v1"
+            ? "SELECT hr_freeze_current_payroll_reconciliation_source($1,$2,$3,$4,$5::date,$6,$7,$8,$9,$10) AS id"
+            : "SELECT hr_freeze_payroll_reconciliation_source($1,$2,$3,$4,$5::date,$6,$7,$8,$9,$10,$11) AS id",
+          batch.source_kind === "payroll_source_v1"
+            ? [scope.tenantId, scope.parkId, dto.legacyBatchId, dto.bookId, dto.periodMonth, dto.sourceSha256, dto.snapshotCount, dto.itemCount, actor.sub, dto.reason]
+            : [scope.tenantId, scope.parkId, dto.legacyBatchId, dto.bookId, dto.periodMonth, dto.bindingSha256, dto.sourceSha256, dto.snapshotCount, dto.itemCount, actor.sub, dto.reason],
         )) as Array<{ id: string }>;
         await this.auditService.recordOperationRequired({
           tenantId: scope.tenantId, parkId: scope.parkId, userId: actor.sub,
@@ -875,19 +883,18 @@ export class HrPayrollHistoryService {
     });
   }
 
-  private async lockFrozenPayrollSource(manager: EntityManager, scope: TenantParkScope, dto: { reconciliationSourceId?: string; legacyBatchId: string }) {
-    return ((await manager.query(`SELECT source.id,source.book_id,source.period_month,source.source_sha256,
-            (source.frozen_input->'snapshots')::text AS snapshots_json,
-            (source.frozen_input->'items')::text AS items_json
-           FROM hr_payroll_reconciliation_source source
-           JOIN hr_yuzhou_t4_followon_operation receipt ON receipt.operation_id=source.operation_id
-             AND receipt.status='succeeded' AND receipt.binding_sha256=source.binding_sha256
-           JOIN migration_batch control ON control.run_id=source.operation_id
-             AND control.t4_followon_operation_id=source.operation_id AND control.status='succeeded'
-             AND control.target_database=current_database()
-           WHERE source.id=$1 AND source.tenant_id=$2 AND source.park_id=$3
-             AND source.legacy_batch_id=$4 FOR SHARE OF source,receipt,control`,
-      [dto.reconciliationSourceId, scope.tenantId, scope.parkId, dto.legacyBatchId])) as RawRow[])[0];
+  private async lockFrozenPayrollSource(manager: EntityManager, scope: TenantParkScope, dto: { reconciliationSourceId?: string; legacyBatchId: string }, verifyCurrentHash = true) {
+    const [source] = await manager.query(`SELECT id,book_id,period_month,source_sha256,
+      (frozen_input->'snapshots')::text AS snapshots_json,(frozen_input->'items')::text AS items_json
+      FROM hr_payroll_reconciliation_source WHERE id=$1 AND tenant_id=$2 AND park_id=$3
+      AND legacy_batch_id=$4 AND octet_length(frozen_input::text)<=16777216 FOR SHARE`, [dto.reconciliationSourceId, scope.tenantId, scope.parkId, dto.legacyBatchId]) as RawRow[];
+    if (source) {
+      if (verifyCurrentHash) await lockCurrentPayrollSource(manager, scope, String(source.id));
+      // Repeatable-read discovery uses immutable frozen evidence and current
+      // receipt metadata. Calculation checks the full hash in READ COMMITTED.
+      else await readCurrentPayrollSourceBatch(manager, scope, dto.legacyBatchId, sqlDate(source.period_month), true, false);
+    }
+    return source;
   }
 
   async preparationCohort(scope: TenantParkScope, actor: JwtPrincipal, query: HrPayrollPreparationCohortQueryDto) {
@@ -899,17 +906,7 @@ export class HrPayrollHistoryService {
     return this.dataSource.transaction("REPEATABLE READ", async manager => {
       await manager.query("SET LOCAL statement_timeout='15s'");
       await manager.query("SET LOCAL lock_timeout='2s'");
-      const source = (await manager.query(`SELECT batch.status FROM hr_payroll_legacy_batch batch
-        WHERE batch.id=$3 AND batch.tenant_id=$1 AND batch.park_id=$2 AND NOT batch.is_deleted
-        AND (batch.status='published' OR (batch.status='staged' AND batch.published_at IS NULL AND EXISTS(
-          SELECT 1 FROM hr_yuzhou_t4_followon_operation receipt WHERE receipt.operation_id=batch.batch_code
-          AND receipt.status='succeeded' AND receipt.binding->'targetScope'->>'tenantId'=batch.tenant_id
-          AND receipt.binding->'targetScope'->>'parkId'=batch.park_id
-          AND receipt.binding->'triple'->>'sourceSnapshotHash'=batch.source_backup_hash::text
-          AND EXISTS(SELECT 1 FROM migration_batch control WHERE control.run_id=receipt.operation_id
-            AND control.t4_followon_operation_id=receipt.operation_id AND control.status='succeeded'
-            AND control.target_database=current_database()))))`, [scope.tenantId,scope.parkId,query.legacyBatchId]))[0] as {status:"staged"|"published"}|undefined;
-      if (!source) throw new ConflictException("Selected payroll preparation source is not available");
+      const source = await readCurrentPayrollSourceBatch(manager, scope, query.legacyBatchId, query.periodMonth, true, false);
       // Keep unavailable and abnormal rows in the census; only the employee page applies eligibility.
       const base = `WITH snapshots AS MATERIALIZED (
         SELECT s.id,s.employee_id,s.mapping_status,s.source_multiplicity,p.book_id,b.book_name,b.legacy_scheme,
@@ -1018,7 +1015,7 @@ export class HrPayrollHistoryService {
       const month = sqlDate(attendance.period_month);
       const legacy = (await manager.query("SELECT status FROM hr_payroll_legacy_batch WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND NOT is_deleted",
         [query.legacyBatchId,scope.tenantId,scope.parkId]))[0] as RawRow | undefined;
-      const frozen = query.reconciliationSourceId ? await this.lockFrozenPayrollSource(manager,scope,query) : undefined;
+      const frozen = query.reconciliationSourceId ? await this.lockFrozenPayrollSource(manager,scope,query,false) : undefined;
       if (query.reconciliationSourceId && (!frozen || sqlDate(frozen.period_month)!==month)) throw new ConflictException("Frozen source does not match selected period");
       if (!legacy || (legacy.status!=="published" && !(legacy.status==="staged" && frozen))) throw new ConflictException("Selected payroll source is not available");
       const employeeSql = frozen ? `SELECT DISTINCT x.employee_id FROM jsonb_to_recordset($4::jsonb) AS x(employee_id uuid) WHERE $3::date IS NOT NULL`
