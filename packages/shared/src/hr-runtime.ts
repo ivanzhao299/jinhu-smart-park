@@ -14,7 +14,7 @@ export function enterpriseStorageScopeKey(enterpriseId:string):string {
  return enterpriseId.replaceAll('-','').toLowerCase();
 }
 export const HR_ENTERPRISE_PAGE_ROUTES:Readonly<Record<string,string>>={
- 'hr:dashboard':'/hr','hr:decision_center':'/hr/decision-center','hr:organization':'/hr/organization','hr:employees':'/hr/employees','hr:legacy_archive':'/hr/employees/legacy','hr:legacy_unclaimed':'/hr/employees/unclaimed','hr:recruitment':'/hr/recruitment','hr:lifecycle':'/hr/lifecycle','hr:contracts':'/hr/contracts','hr:attendance':'/hr/attendance','hr:insurance':'/hr/insurance','hr:compensation':'/hr/compensation','hr:payroll':'/hr/payroll','hr:goals':'/hr/goals','hr:work_reports':'/hr/work-reports','hr:performance':'/hr/performance','hr:feedback_360':'/hr/feedback-360','hr:talent':'/hr/talent','hr:training':'/hr/training','hr:rewards':'/hr/rewards','hr:approvals':'/hr/approvals'
+ 'hr:dashboard':'/hr','hr:decision_center':'/hr/decision-center','hr:organization':'/hr/organization','hr:employees':'/hr/employees','hr:legacy_archive':'/hr/employees/legacy','hr:legacy_unclaimed':'/hr/employees/unclaimed','hr:recruitment':'/hr/recruitment','hr:lifecycle':'/hr/lifecycle','hr:contracts':'/hr/contracts','hr:employee_reminders':'/hr/employee-reminders','hr:attendance':'/hr/attendance','hr:insurance':'/hr/insurance','hr:compensation':'/hr/compensation','hr:payroll':'/hr/payroll','hr:goals':'/hr/goals','hr:work_reports':'/hr/work-reports','hr:performance':'/hr/performance','hr:feedback_360':'/hr/feedback-360','hr:talent':'/hr/talent','hr:training':'/hr/training','hr:rewards':'/hr/rewards','hr:approvals':'/hr/approvals'
 };
 
 /** Canonical server-owned page names, independent of API permission display names. */
@@ -28,6 +28,7 @@ export const HR_ENTERPRISE_PAGE_LABELS:Readonly<Record<string,string>>={
   "hr:recruitment": "招聘管理",
   "hr:lifecycle": "入离职办理",
   "hr:contracts": "劳动合同",
+  "hr:employee_reminders": "员工重要日期提醒",
   "hr:attendance": "考勤管理",
   "hr:insurance": "五险一金",
   "hr:compensation": "薪酬方案",

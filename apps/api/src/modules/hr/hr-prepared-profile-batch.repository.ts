@@ -17,6 +17,9 @@ const adapter = "267c7ac63394f81a53c62fa30b3bbf51f0fddbe34eb113bbad304b591a77d13
 // Exact reviewed fingerprints. Contract-only recipe expansion leaves the pinned
 // profile collector/alias adapter unchanged; retain original prepared batches.
 const recipes = new Set([
+  // Reminder permission definitions changed the recipe fingerprint only; all
+  // thirty recipe inputs were compared, with no mapper/collector/adapter drift.
+  "e341182cfd19b611b5ee9c87f2775ad774d5d67cfeed17f1ff1605edc889ac33",
   // Normalized formal-profile contract expansion; this does not expand the
   // reviewed dbo.person.core_residue raw projection.
   "68eaaf18c72530cf88e8b05ec0e9cfaa48ed24e9c917a2c3a9e3b2a5edf7f0bb",

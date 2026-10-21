@@ -87,6 +87,11 @@ export class HrNotificationService {
     await this.publish(manager,{scope,actor,recipientId:owner.userId,sourceId:input.actionId,sourceType:"hr_development_action",bizType:"hr_development_action",targetUrl:"/hr/talent",action:"develop",title:"待完成发展行动",content:"您有一项个人发展行动，请在截止日前完成并提交证据。",payload:{status:"pending"},uniqueKey:`hr:development:${input.actionId}:pending:${owner.userId}`});
   }
 
+  /** The message carries only a reminder ID; the detail endpoint rechecks access. */
+  async publishEmployeeDateReminder(scope:TenantParkScope,actor:JwtPrincipal,input:{reminderId:string;recipientUserId:string;kind:"birthday"|"hire_anniversary";dueDate:string},manager:EntityManager):Promise<void>{
+    await this.publish(manager,{scope,actor,recipientId:input.recipientUserId,sourceId:input.reminderId,sourceType:"hr_employee_date_reminder",bizType:"hr_employee_date_reminder",targetUrl:`/hr/employee-reminders?reminder=${input.reminderId}`,action:"handle",title:input.kind==="birthday"?"员工生日提醒":"员工入职周年提醒",content:"您有一条待办理的员工重要日期提醒，请进入提醒中心查看。",payload:{reminderId:input.reminderId,kind:input.kind,dueDate:input.dueDate},uniqueKey:`hr:employee-date-reminder:${input.reminderId}:${input.recipientUserId}`});
+  }
+
   private async publish(
     manager: EntityManager,
     input: {

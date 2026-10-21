@@ -3,7 +3,7 @@
   "artifactKind": "yuzhou_reusable_import_interface",
   "evidenceScope": "offline adapter capabilities; not production deployment or batch acceptance",
   "recipeVersion": "yuzhou-reusable-incremental-v2",
-  "recipeSha256": "68eaaf18c72530cf88e8b05ec0e9cfaa48ed24e9c917a2c3a9e3b2a5edf7f0bb",
+  "recipeSha256": "e341182cfd19b611b5ee9c87f2775ad774d5d67cfeed17f1ff1605edc889ac33",
   "sourceSystem": "yuzhou-v10",
   "entries": {
     "controlledStaging": "node scripts/hr-cutover/build-yuzhou-import-from-staging.mjs --config <private-config.json>",

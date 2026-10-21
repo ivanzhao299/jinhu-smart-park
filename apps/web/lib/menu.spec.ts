@@ -134,6 +134,7 @@ test("HR is a discoverable first-level sidebar module with every production page
       ["/hr", "hr:dashboard"], ["/hr/decision-center", "hr:decision_center"], ["/hr/organization", "hr:organization"], ["/hr/employees", "hr:employees"],
       ["/hr/employees/legacy", "hr:legacy_archive"], ["/hr/employees/unclaimed", "hr:legacy_unclaimed"],
       ["/hr/recruitment", "hr:recruitment"], ["/hr/lifecycle", "hr:lifecycle"], ["/hr/contracts", "hr:contracts"],
+      ["/hr/employee-reminders", "hr:employee_reminders"],
       ["/hr/attendance", "hr:attendance"], ["/hr/insurance", "hr:insurance"], ["/hr/compensation", "hr:compensation"],
       ["/hr/payroll", "hr:payroll"], ["/hr/goals", "hr:goals"], ["/hr/work-reports", "hr:work_reports"],
       ["/hr/performance", "hr:performance"], ["/hr/feedback-360", "hr:feedback_360"], ["/hr/talent", "hr:talent"],

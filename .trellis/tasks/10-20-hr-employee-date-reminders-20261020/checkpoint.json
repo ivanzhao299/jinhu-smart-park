@@ -1,0 +1,71 @@
+{
+  "objective": "Full Yuzhou HR modernization, core workflows, module production acceptance and independent HR final acceptance remain active",
+  "currentPackage": "Formal employee birthday/hire-anniversary preview, reminder generation, station inbox and scoped state/history",
+  "workspace": "/Users/mac/.codex/worktrees/hr-payroll-monthly-ingress-20261020/jinhu-smart-park",
+  "branch": "codex/hr-employee-date-reminders-20261020",
+  "baseline": "24c4783099201100a049a2fe0acbb9c9ea46ac65",
+  "task": "/Users/mac/.codex/worktrees/hr-payroll-monthly-ingress-20261020/jinhu-smart-park/.trellis/tasks/10-20-hr-employee-date-reminders-20261020",
+  "stage": "LOCAL_VALIDATED_PRE_RELEASE_SYNC",
+  "implementAgent": "/root/employee_date_reminders_implement",
+  "ownership": "Root owns all product and task files, DB/runtime/release; completed tests child owns its two API specs; no active implementation writer",
+  "acceptance": [
+    "Formal dates only; explicit leap-day policy; no historical date guessing",
+    "Preview to normal HTTP persisted generation, internal notification, scoped read/ack/resolve/cancel and immutable history",
+    "Cross-year/date edits/current employee relations and repeated/concurrent run correctness",
+    "Synthetic isolated actual PostgreSQL and normal HTTP; root executes DB tests",
+    "Shared DS actual desktop and390px browser checks",
+    "Independent whole-package review; latest-base merge and runtime/health/cleanup evidence"
+  ],
+  "previousRelease": {
+    "pr": 1015,
+    "sha": "24c4783099201100a049a2fe0acbb9c9ea46ac65",
+    "deploy": 39352727491,
+    "observer": 39355045483,
+    "productionRuntime": "PASS",
+    "mainCi": 39352727556,
+    "mainCiWatchSession": null,
+    "mainCiStatus": "SUCCESS"
+  },
+  "businessPending": [
+    "Wu July NULL/pre-gross/U487 and tax/insurance policy confirmation",
+    "Production real-role UAT",
+    "Windows/GroupWeb exact-rule/report parity",
+    "Cutover/restore and independent HR M0-M5/P0-P4 acceptance"
+  ],
+  "fullGoalComplete": false,
+  "usage": "UNAVAILABLE",
+  "updatedAt": "2026-10-20T02:25:46.650928+00:00",
+  "rootHttpFixture": {
+    "script": "/Users/mac/.codex/artifacts/hr-employee-date-reminders-20261020/normal-http-fixture.mjs",
+    "status": "SYNTAX_PASS_NOT_EXECUTED",
+    "fixtureActors": 6,
+    "fixtureEmployees": 4,
+    "scope": "Normal API synthetic actor/employee setup only; no payroll calls"
+  },
+  "activeReviewFindings": [
+    "Own HR employee-reminder message adapter must work without workorder permissions",
+    "Focused calendar/DTO/state/recipient and executable PG tests required before technical acceptance"
+  ],
+  "normalHrInboxActualProbe": "/Users/mac/.codex/artifacts/hr-employee-date-reminders-20261020/normal-hr-workflow-inbox-probe.json",
+  "nextAction": "Latest-base sync, commit/PR CI, merge/deploy, actual runtime/health/cleanup; keep full goal active",
+  "status": "IN_PROGRESS",
+  "validation": {
+    "status": "PASS_LOCAL_DUAL_RUNTIME_REMINDER_JOURNEY",
+    "checkedAt": "2026-10-20T02:25:46.650928+00:00",
+    "base": "24c4783099201100a049a2fe0acbb9c9ea46ac65",
+    "apiUnits": 8,
+    "postgresCases": 14,
+    "webInteraction": 8,
+    "normalIntegratedRoleLogins": 6,
+    "normalIndependentRoleLogins": 3,
+    "independentFreshUpgradeReplay": true,
+    "desktopWidth": 1440,
+    "mobileWidth": 390,
+    "horizontalOverflow": false,
+    "independentReview": "PASS_NO_BLOCKING_FINDINGS",
+    "productionWrites": 0,
+    "productionRelease": "PENDING",
+    "fullGoalComplete": false
+  },
+  "activeRunHandle": null
+}

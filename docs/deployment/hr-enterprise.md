@@ -42,3 +42,7 @@ JWT 带部署模式；旧无模式 JWT 仅集成模式兼容。独立刷新令�
 独立前向步骤 `000007_member_actor_references.sql` 按随附精确清单将97个 HR 三列用户范围外键改为企业成员历史存在外键，保留名称及引用动作；集成迁移和单列身份外键不变。成员停用由实时业务资格检查处理，不删除历史作者身份。`000008_reminder_role_scope.sql` 允许提醒目录显式指定该企业 HR 角色代码，仍要求其他收件类型的角色代码为空；运行提醒时同时检查当前企业的有效角色和有效成员。初始化迁移不新增权限或提醒数据，目录只在显式企业 bootstrap 时建立。
 
 密码验证成功后，独立登录优先选择有效的默认企业；默认成员关系停用时按企业标识稳定排序选择其他有效企业。指定企业登录必须为该企业有效成员，没有有效成员时拒绝登录。集成模式继续原默认园区规则。企业成员列表沿用普通用户列表的租户数据范围及字段策略，组织负责人选择沿用字段策略并按当前企业实时成员筛选。
+
+### Employee date reminder upgrade
+
+Run the existing versioned independent initializer to apply the appended common382 and000009 steps; do not regenerate the old kernel or rerun integrated park migrations. The new step registers permission definitions and navigation metadata for existing HR tenants without granting additional roles/users access. New enterprise bootstrap uses the updated canonical catalog. Existing enterprises assign the new reminder capabilities through their authorized administration flow. A new database/files paired snapshot with the current installation manifest is necessary before claiming restored-version acceptance.
