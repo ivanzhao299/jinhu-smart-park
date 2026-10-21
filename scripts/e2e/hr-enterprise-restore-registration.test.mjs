@@ -4,6 +4,8 @@ import {mkdtemp, realpath, writeFile, readFile, rm, readdir} from 'node:fs/promi
 import {tmpdir} from 'node:os';
 import {resolve} from 'node:path';
 import {spawnSync} from 'node:child_process';
+import {Buffer} from 'node:buffer';
+import process from 'node:process';
 import {normalizeRestoreSchema, assertSelectedRestoreAcl, fileRootStatIdentity} from '../hr-enterprise/restore-catalog.mjs';
 import {withRestoreDirectoryLock, replaceRestoreMarker, restoredMarkerBytes,
   registerRestoredPair} from '../hr-enterprise/register-restored-pair.mjs';
@@ -33,6 +35,53 @@ test('changed, absent or duplicated reviewed CHECK definitions fail closed', () 
   assert.throws(() => normalizeRestoreSchema(source.replace("'disabled'", "'unexpected'")), /RESTORE_CHECK_DEFINITION/);
   assert.throws(() => normalizeRestoreSchema(source.replace('ck_sys_business_scope_kind', 'unknown_constraint')), /RESTORE_CHECK_DEFINITION/);
   assert.throws(() => normalizeRestoreSchema(source + source), /RESTORE_CHECK_DEFINITION/);
+});
+
+const reminderSource = `
+    CONSTRAINT ck_hr_employee_date_reminder_kind CHECK (((reminder_kind)::text = ANY ((ARRAY['birthday'::character varying, 'hire_anniversary'::character varying])::text[]))),
+    CONSTRAINT ck_hr_employee_date_reminder_policy CHECK (((leap_day_policy)::text = ANY ((ARRAY['skip'::character varying, 'feb_28'::character varying, 'mar_1'::character varying])::text[]))),
+    CONSTRAINT ck_hr_employee_date_reminder_recipients CHECK ((((cardinality(recipient_kinds) >= 1) AND (cardinality(recipient_kinds) <= 3)) AND (recipient_kinds <@ ARRAY['hr'::text, 'manager'::text, 'employee'::text]))),
+    CONSTRAINT ck_hr_employee_date_reminder_status CHECK (((status)::text = ANY ((ARRAY['open'::character varying, 'read'::character varying, 'acknowledged'::character varying, 'resolved'::character varying, 'cancelled'::character varying])::text[]))),
+    CONSTRAINT ck_hr_employee_date_reminder_action CHECK (((action)::text = ANY ((ARRAY['read'::character varying, 'acknowledge'::character varying, 'resolve'::character varying, 'cancel'::character varying])::text[])))
+`;
+const reminderRestored = `
+    CONSTRAINT ck_hr_employee_date_reminder_kind CHECK (((reminder_kind)::text = ANY (ARRAY[('birthday'::character varying)::text, ('hire_anniversary'::character varying)::text]))),
+    CONSTRAINT ck_hr_employee_date_reminder_policy CHECK (((leap_day_policy)::text = ANY (ARRAY[('skip'::character varying)::text, ('feb_28'::character varying)::text, ('mar_1'::character varying)::text]))),
+    CONSTRAINT ck_hr_employee_date_reminder_recipients CHECK (((cardinality(recipient_kinds) >= 1) AND (cardinality(recipient_kinds) <= 3) AND (recipient_kinds <@ ARRAY['hr'::text, 'manager'::text, 'employee'::text]))),
+    CONSTRAINT ck_hr_employee_date_reminder_status CHECK (((status)::text = ANY (ARRAY[('open'::character varying)::text, ('read'::character varying)::text, ('acknowledged'::character varying)::text, ('resolved'::character varying)::text, ('cancelled'::character varying)::text]))),
+    CONSTRAINT ck_hr_employee_date_reminder_action CHECK (((action)::text = ANY (ARRAY[('read'::character varying)::text, ('acknowledge'::character varying)::text, ('resolve'::character varying)::text, ('cancel'::character varying)::text])))
+`;
+
+test('current reminder dump and actual PostgreSQL16 restored forms have one exact canonical schema', () => {
+  const canonical = normalizeRestoreSchema(source + reminderSource);
+  assert.equal(canonical, normalizeRestoreSchema(restored + reminderRestored));
+  assert.equal(canonical, normalizeRestoreSchema(canonical));
+  // Older frozen schemas still normalize without requiring new reminder tables.
+  assert.equal(normalizeRestoreSchema(source), normalizeRestoreSchema(restored));
+});
+
+for (const [description, before, after] of [
+  ['kind', "'hire_anniversary'", "'unexpected'"],
+  ['policy', "'mar_1'", "'unexpected'"],
+  ['status', "'resolved'", "'unexpected'"],
+  ['action', "'acknowledge'", "'unexpected'"],
+  ['recipient cardinality', '<= 3', '<= 4'],
+  ['recipient operator', '<@ ARRAY', '@> ARRAY'],
+  ['recipient conjunction', 'AND (recipient_kinds', 'OR (recipient_kinds'],
+  ['recipient column', 'cardinality(recipient_kinds)', 'cardinality(other_kinds)'],
+]) {
+  test('changed reminder ' + description + ' fails exact definition validation', () => {
+    for (const actual of [reminderSource, reminderRestored]) {
+      assert.throws(() => normalizeRestoreSchema(source + actual.replace(before, after)), /RESTORE_CHECK_DEFINITION/);
+    }
+  });
+}
+
+test('duplicate reminder definitions and unrelated schema changes are not normalized away', () => {
+  assert.throws(() => normalizeRestoreSchema(source + reminderSource + reminderRestored), /RESTORE_CHECK_DEFINITION/);
+  const good = normalizeRestoreSchema(source + reminderSource);
+  assert.notEqual(good, normalizeRestoreSchema(restored.replace('id integer', 'id text') + reminderRestored));
+  assert.notEqual(good, normalizeRestoreSchema(restored + reminderRestored.replace('ck_hr_employee_date_reminder_kind', 'unreviewed_kind')));
 });
 
 test('required installation ACL rejects a broadened source catalog policy too', () => {

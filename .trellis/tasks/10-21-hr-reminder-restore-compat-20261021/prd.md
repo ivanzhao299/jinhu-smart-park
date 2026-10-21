@@ -1,0 +1,5 @@
+# Current reminder data must survive independent HR restore
+
+The actual current-version synthetic restore passes table/file content verification but registration rejects PostgreSQL 16's equivalent deparsed forms of five reminder CHECK constraints added in migration382. Restore must retain the three reminder records and two immutable action rows, exact installation history, files, functions and ACLs while permitting only the reviewed equivalent forms.
+
+Acceptance: preserve the original failed receipt and frozen source; accept the exact enum-array cast and recipient-AND forms from the actual dump/restore; reject altered values, operators, columns and duplicate definitions; preserve pre382 compatibility and all existing strict schema/catalog/content gates. Complete a fresh target restore check/apply/replay and normal restored HTTP readback. Do not modify applied migrations, production facts or old backup manifests. Local evidence does not prove production RTO/RPO or complete HR business parity.

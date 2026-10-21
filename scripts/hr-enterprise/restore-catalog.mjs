@@ -2,6 +2,7 @@ import {readFile, realpath, lstat} from 'node:fs/promises';
 import {execFile} from 'node:child_process';
 import {promisify, isDeepStrictEqual} from 'node:util';
 import {basename} from 'node:path';
+import process from 'node:process';
 import {sha256, regularFile} from './verify-restored-pair.mjs';
 
 const run = promisify(execFile);
@@ -13,6 +14,23 @@ const reviewedChecks = [
   ['ck_sys_business_scope_module_status', 'status', ['enabled', 'disabled']],
   ['ck_sys_user_business_scope_membership_status', 'status', ['enabled', 'disabled']],
 ];
+// Exact PostgreSQL16 deparser forms observed after restoring migration382.
+// Their absence permits retained pre382 schemas, not malformed definitions.
+const reminderChecks = [
+  ['ck_hr_employee_date_reminder_kind', 'reminder_kind', ['birthday', 'hire_anniversary'], ','],
+  ['ck_hr_employee_date_reminder_policy', 'leap_day_policy', ['skip', 'feb_28', 'mar_1'], ','],
+  ['ck_hr_employee_date_reminder_status', 'status', ['open', 'read', 'acknowledged', 'resolved', 'cancelled'], ','],
+  ['ck_hr_employee_date_reminder_action', 'action', ['read', 'acknowledge', 'resolve', 'cancel'], ''],
+];
+
+function normalizeExactCheck(text, name, before, after, required) {
+  if (!required && !text.includes('CONSTRAINT ' + name + ' ')) return text;
+  const lines = text.split('\n');
+  requireCondition(lines.filter(line => line.includes('CONSTRAINT ' + name + ' ')).length === 1
+    && lines.filter(line => line === before || line === after).length === 1,
+  'RESTORE_CHECK_DEFINITION');
+  return text.replace(before, after);
+}
 
 export async function fileRootStatIdentity(path) {
   const info = await lstat(path);
@@ -23,16 +41,17 @@ export async function fileRootStatIdentity(path) {
 export function normalizeRestoreSchema(raw) {
   let text = raw.split(/\r?\n/).filter(line => line.trim() && !line.startsWith('--')
     && !line.startsWith('\\restrict ') && !line.startsWith('\\unrestrict ')).join('\n');
-  for (const [name, column, values] of reviewedChecks) {
+  for (const [name, column, values, suffix = ','] of [...reviewedChecks, ...reminderChecks]) {
     const beforeArray = "((ARRAY[" + values.map(v => "'" + v + "'::character varying").join(', ') + "])::text[])";
     const afterArray = "(ARRAY[" + values.map(v => "('" + v + "'::character varying)::text").join(', ') + "])";
-    const before = '    CONSTRAINT ' + name + ' CHECK (((' + column + ')::text = ANY ' + beforeArray + ')),';
-    const after = '    CONSTRAINT ' + name + ' CHECK (((' + column + ')::text = ANY ' + afterArray + ')),';
-    const oldCount = text.split('\n').filter(line => line === before).length;
-    const newCount = text.split('\n').filter(line => line === after).length;
-    requireCondition(oldCount + newCount === 1, 'RESTORE_CHECK_DEFINITION');
-    if (oldCount) text = text.replace(before, after);
+    const before = '    CONSTRAINT ' + name + ' CHECK (((' + column + ')::text = ANY ' + beforeArray + '))' + suffix;
+    const after = '    CONSTRAINT ' + name + ' CHECK (((' + column + ')::text = ANY ' + afterArray + '))' + suffix;
+    text = normalizeExactCheck(text, name, before, after, reviewedChecks.some(([required]) => required === name));
   }
+  text = normalizeExactCheck(text, 'ck_hr_employee_date_reminder_recipients',
+    "    CONSTRAINT ck_hr_employee_date_reminder_recipients CHECK ((((cardinality(recipient_kinds) >= 1) AND (cardinality(recipient_kinds) <= 3)) AND (recipient_kinds <@ ARRAY['hr'::text, 'manager'::text, 'employee'::text]))),",
+    "    CONSTRAINT ck_hr_employee_date_reminder_recipients CHECK (((cardinality(recipient_kinds) >= 1) AND (cardinality(recipient_kinds) <= 3) AND (recipient_kinds <@ ARRAY['hr'::text, 'manager'::text, 'employee'::text]))),",
+    false);
   return text;
 }
 
