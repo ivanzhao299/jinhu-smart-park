@@ -1,0 +1,15 @@
+{
+  "objective": "Current reminder tables and history survive strict independent HR restoration",
+  "baseline": "5f9b8816e5ea07be2eed3a3d181ea0d66edc73df",
+  "status": "LOCAL_ACTUAL_RESTORE_AND_HTTP_PASS_RELEASE_PENDING",
+  "workspace": "/Users/mac/.codex/worktrees/hr-payroll-monthly-ingress-20261020/jinhu-smart-park",
+  "branch": "codex/hr-reminder-restore-compat-20261021",
+  "unitTests": 27,
+  "actualRestore": {"tables": 305, "rows": 653, "functions": 561, "roles": 8, "installSteps": 11, "reminders": 3, "actions": 2, "files": 1, "negativeCases": 3, "normalRoleLogins": 3, "cleanup": "EXACT_NEW_TARGET_ONLY"},
+  "evidence": "/Users/mac/.codex/artifacts/hr-current-version-restore-20261021",
+  "productionWrites": 0,
+  "blocker": null,
+  "nextAction": "Fetch and review candidate, commit PR and required CI; preserve original release main CI39536548242 until terminal",
+  "fullGoalComplete": false,
+  "usage": "UNAVAILABLE"
+}

@@ -359,6 +359,8 @@ Reference files:
 
 When changing environment variables, scripts, release flow, first-release scope, menu visibility, auth behavior, database initialization, financial behavior, or idempotency behavior, update the matching docs in the same task.
 
+Current-version reminder restores must exercise migration382 tables and action history. PostgreSQL16 rewrites four exact reminder enum-array casts and the recipient cardinality/subset AND grouping. Normalize only these named, fixed definitions (optional before382; malformed/duplicate definitions fail); never strip generic casts/parentheses or change applied migrations. Freeze expected data/catalog from the source, retain raw schema and failed receipts, and validate a real dump/restore plus broadened-bound negative case. A changed canonical schema hash must derive from the pinned frozen source bytes, not the target.
+
 ### Evidence-Bound Refactors
 
 - A source-only import move still changes a whole-file evidence hash. Search the previous SHA in
