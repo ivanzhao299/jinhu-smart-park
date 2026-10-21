@@ -3,7 +3,8 @@ import process from 'node:process';
 import { resolve, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// Fixed identity predicate from production seed 000033. Return counts, never rows.
+// Operator audit: count the confirmed canonical login, not the apartment alias.
+// Fixed scope and count-only projection; this never grants a role or logs in.
 export const identitySql = `BEGIN TRANSACTION READ ONLY;
 SET LOCAL statement_timeout='5s';
 SET LOCAL lock_timeout='2s';
@@ -11,7 +12,7 @@ SET LOCAL search_path=public,pg_catalog;
 WITH users AS (
  SELECT id,is_enabled FROM sys_user
  WHERE tenant_id='10000001' AND park_id='20000001'
- AND username IN ('wu_enguo','wuenguo') AND display_name='吴恩国' AND is_deleted=false
+ AND username='wuenguo' AND display_name='吴恩国' AND is_deleted=false
 ), roles AS (
  SELECT id FROM sys_role WHERE tenant_id='10000001' AND park_id='20000001'
  AND code='HR_MANAGER' AND is_deleted=false AND is_enabled=true AND is_super=false
