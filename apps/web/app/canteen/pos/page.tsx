@@ -71,6 +71,12 @@ export default function PosTerminalPage() {
   const [outletName, setOutletName] = useState("智慧园区餐厅 · 一楼综合档口");
   const [outletId, setOutletId] = useState("");
   const [outlets, setOutlets] = useState<Array<{ id: string; name: string }>>([]);
+  /* 业务日期：客户端挂载后填充浏览器时钟，SSR 仅占位——
+     避免构建期日期被烘焙进静态 HTML（生产曾因此长期停留在部署日） */
+  const [businessDate, setBusinessDate] = useState("");
+  useEffect(() => {
+    setBusinessDate(new Date().toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" }));
+  }, []);
   const [dishes, setDishes] = useState<PosDish[]>(DEMO_DISHES);
   const [cats, setCats] = useState<string[]>(DEMO_CATS);
   const [demoMode, setDemoMode] = useState(true);
@@ -700,7 +706,7 @@ export default function PosTerminalPage() {
           </div>
           <div className={styles.topDiv} />
           <div className={styles.topMeta}><span>收银员</span><b suppressHydrationWarning>{user?.realName ?? "当班"}</b></div>
-          <div className={styles.topMeta}><span>业务日期</span><b suppressHydrationWarning>{new Date().toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" })}</b></div>
+          <div className={styles.topMeta}><span>业务日期</span><b>{businessDate || "—"}</b></div>
           <div className={styles.topMeta}><span>当前餐段</span><b>{period}</b></div>
           <div className={styles.topSpacer} />
           <div className={styles.netPill}>
