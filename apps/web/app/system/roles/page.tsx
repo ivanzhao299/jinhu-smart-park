@@ -140,12 +140,11 @@ const templateInstantiationPermissionLabels = new Map<string, string>([
   [SYSTEM_PERMISSIONS.ROLE_ASSIGN_FIELD_POLICY, "角色绑定字段策略"]
 ]);
 
-// 分阶段放开非托管模板实例化：当前仅餐厅管理员；验证通过后批量放开其余业务模板时移除此清单。
-const nonManagedTemplateInstantiationAllowlist = new Set(["CANTEEN_ADMIN"]);
-
-function canOpenTemplateInstance(role: Pick<RoleNode, "code" | "isTemplate" | "roleScope" | "managedTemplateCode">): boolean {
+// 模板实例化入口：托管物业模板与所有非平台作用域的业务/租户模板均可实例化为普通角色；
+// 平台级模板（SUPER_ADMIN/SYSTEM_ADMIN/AUDITOR）与服务账号角色保持受保护，不开放实例化。
+function canOpenTemplateInstance(role: Pick<RoleNode, "isTemplate" | "roleScope" | "managedTemplateCode">): boolean {
   if (role.managedTemplateCode) return true;
-  return role.isTemplate && role.roleScope !== "platform" && nonManagedTemplateInstantiationAllowlist.has(role.code);
+  return role.isTemplate && role.roleScope !== "platform";
 }
 
 const emptyPage: PaginatedResult<RoleNode> = { items: [], page: 1, page_size: 20, total: 0 };
@@ -566,7 +565,9 @@ export default function RolesPage() {
                   <div className="status-pill" role="note">
                     {selectedRoleIsManagedPropertyTemplate
                       ? "标准物业模板不能直接授权或分配给用户；请先实例化为当前园区普通角色，实例化后可继续配置并分配给用户。"
-                      : "模板角色不能直接授权或分配给用户；非标准物业模板会按原角色范围复制，实例范围以复制结果为准。"}
+                      : selectedRoleInstantiable
+                        ? "模板角色不能直接授权或分配给用户；可按原角色范围实例化为普通角色后再分配给用户。"
+                        : "平台级模板受系统保护，不能直接授权或分配给用户，也不开放实例化。"}
                     {selectedRoleInstantiable && canInstantiateTemplates ? (
                       <button className="inline-action-button" type="button" onClick={() => openTemplateInstance(selectedRole)}>实例化为普通角色</button>
                     ) : selectedRoleInstantiable ? (
