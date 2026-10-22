@@ -21,6 +21,14 @@ try {
   query(`CREATE TABLE sys_user(id int PRIMARY KEY,tenant_id text,park_id text,username text,display_name text,is_deleted boolean,is_enabled boolean DEFAULT true);
     CREATE TABLE sys_role(id int PRIMARY KEY,tenant_id text,park_id text,code text,is_deleted boolean,is_enabled boolean,is_super boolean);
     CREATE TABLE rel_user_role(tenant_id text,park_id text,user_id int,role_id int,create_time timestamptz,update_time timestamptz,is_deleted boolean,version int,remark text);
+    CREATE TABLE sys_permission(id int PRIMARY KEY,tenant_id text,park_id text,code text,is_deleted boolean,is_enabled boolean);
+    CREATE TABLE rel_role_perm(tenant_id text,park_id text,role_id int,permission_id int,is_deleted boolean);
+    INSERT INTO sys_permission VALUES
+      (1,'10000001','20000001','hr',false,true),(2,'10000001','20000001','hr:employees',false,true),
+      (3,'10000001','20000001','hr:employee:read',false,true),
+      (4,'10000001','20000001','hr:employee_profile:read',false,true),
+      (5,'10000001','20000001','hr:employee_profile:manage',false,true);
+    INSERT INTO rel_role_perm SELECT '10000001','20000001',1,id,false FROM sys_permission;
     CREATE UNIQUE INDEX role_active ON rel_user_role(tenant_id,park_id,user_id,role_id) WHERE is_deleted=false;
     INSERT INTO sys_user VALUES(1,'10000001','20000001','wu_enguo','吴恩国',false,true),(2,'other','other','wu_enguo','吴恩国',false,true);
     INSERT INTO sys_role VALUES(1,'10000001','20000001','HR_MANAGER',false,true,false),(2,'other','other','HR_MANAGER',false,true,false);
@@ -74,11 +82,37 @@ try {
   assert.equal(query('SELECT is_enabled FROM sys_user WHERE id=1').trim(),'f');
   assert.equal(query('SELECT count(*) FROM rel_user_role WHERE user_id=1 AND NOT is_deleted').trim(),'1');
   query('UPDATE rel_user_role SET is_deleted=true; UPDATE sys_user SET is_enabled=true WHERE id=1');
+  query("ALTER TABLE sys_role ADD COLUMN status text DEFAULT 'enabled', ADD COLUMN role_scope text DEFAULT 'park'; ALTER TABLE sys_permission ADD COLUMN status text DEFAULT 'enabled'");
   const counts = () => JSON.parse(query(identitySql).split('\n').find(line => line.startsWith('{')));
-  assert.deepEqual(counts(), {matchingUsers:1,enabledUsers:1,eligibleRoles:1,boundUsers:0});
+  assert.deepEqual(counts(), {matchingUsers:1,enabledUsers:1,eligibleRoles:1,boundUsers:0,selectedUsers:1,enabledSelectedUsers:1,selectedBoundUsers:0,requiredPermissions:5,rolePermissions:5,effectivePermissions:0});
   query("INSERT INTO sys_user VALUES(3,'10000001','20000001','wuenguo','吴恩国',false,false)");
-  assert.deepEqual(counts(), {matchingUsers:2,enabledUsers:1,eligibleRoles:1,boundUsers:0});
+  assert.deepEqual(counts(), {matchingUsers:2,enabledUsers:1,eligibleRoles:1,boundUsers:0,selectedUsers:1,enabledSelectedUsers:0,selectedBoundUsers:0,requiredPermissions:5,rolePermissions:5,effectivePermissions:0});
   assert.equal(query('SELECT count(*) FROM rel_user_role WHERE NOT is_deleted').trim(),'0');
+  query('UPDATE sys_user SET is_enabled=true WHERE id=3');
+  query("INSERT INTO rel_user_role VALUES('10000001','20000001',1,1,now(),now(),false,1,'lab legacy')");
+  assert.equal(counts().boundUsers,1); assert.equal(counts().selectedBoundUsers,0); assert.equal(counts().effectivePermissions,0);
+  query(sql);
+  assert.equal(counts().selectedBoundUsers,1); assert.equal(counts().effectivePermissions,5);
+  query("UPDATE sys_role SET status='disabled' WHERE id=1");
+  assert.equal(counts().selectedBoundUsers,1); assert.equal(counts().effectivePermissions,0);
+  query("UPDATE sys_role SET status='enabled',park_id='foreign' WHERE id=1");
+  assert.equal(counts().effectivePermissions,0);
+  query("UPDATE sys_role SET role_scope='tenant' WHERE id=1");
+  assert.equal(counts().effectivePermissions,5);
+  query("UPDATE sys_role SET role_scope='park',park_id='20000001' WHERE id=1; UPDATE sys_permission SET status='disabled' WHERE id=5");
+  assert.equal(counts().effectivePermissions,4);
+  query("UPDATE sys_permission SET status='enabled' WHERE id=5");
+  query('UPDATE sys_permission SET is_enabled=false WHERE id=5');
+  assert.equal(counts().effectivePermissions,4); assert.equal(counts().rolePermissions,4);
+  query('UPDATE sys_permission SET is_enabled=true WHERE id=5; UPDATE rel_role_perm SET is_deleted=true WHERE permission_id=5');
+  assert.equal(counts().effectivePermissions,4);
+  query("UPDATE rel_role_perm SET is_deleted=false,park_id='foreign' WHERE permission_id=5");
+  assert.equal(counts().effectivePermissions,4);
+  query("UPDATE rel_role_perm SET park_id='20000001' WHERE permission_id=5");
+  assert.equal(counts().effectivePermissions,5);
+  query("INSERT INTO sys_user VALUES(4,'10000001','20000001','wuenguo','吴恩国',false,true)");
+  assert.equal(counts().selectedUsers,2);
+  assert.equal(query('SELECT count(*) FROM rel_user_role WHERE NOT is_deleted').trim(),'2');
   console.log('wu-enguo-hr-manager-postgres: PASS (repeat, isolation, concurrency, ambiguity, super-role rejection)');
 } finally {
   if (started) execFileSync(join(bin, 'pg_ctl'), ['-D', join(dir, 'data'), '-m', 'fast', '-w', 'stop'], { stdio: 'pipe' });
