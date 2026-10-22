@@ -42,7 +42,7 @@ test("template roles expose an explicit instantiation flow and permission guidan
   assert.match(source, /当前账号缺少实例化所需权限/);
   assert.match(source, /openTemplateInstance\(selectedRole\)/);
   assert.match(source, /function openTemplateInstance\(role: RoleNode\)/);
-  assert.match(source, /if \(!role\.managedTemplateCode\)/);
+  assert.match(source, /if \(!canOpenTemplateInstance\(role\)\)/);
   assert.match(source, /async function submitTemplateInstance/);
   assert.match(source, /response\.data\.isAssignable && canAssignUserRoles/);
   assert.match(source, /title="实例化为普通角色"/);
