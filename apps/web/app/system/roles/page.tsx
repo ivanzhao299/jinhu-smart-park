@@ -140,6 +140,13 @@ const templateInstantiationPermissionLabels = new Map<string, string>([
   [SYSTEM_PERMISSIONS.ROLE_ASSIGN_FIELD_POLICY, "角色绑定字段策略"]
 ]);
 
+// 模板实例化入口：托管物业模板与所有非平台作用域的业务/租户模板均可实例化为普通角色；
+// 平台级模板（SUPER_ADMIN/SYSTEM_ADMIN/AUDITOR）与服务账号角色保持受保护，不开放实例化。
+function canOpenTemplateInstance(role: Pick<RoleNode, "isTemplate" | "roleScope" | "managedTemplateCode">): boolean {
+  if (role.managedTemplateCode) return true;
+  return role.isTemplate && role.roleScope !== "platform";
+}
+
 const emptyPage: PaginatedResult<RoleNode> = { items: [], page: 1, page_size: 20, total: 0 };
 const emptyForm: RoleFormState = {
   code: "",
@@ -193,6 +200,7 @@ export default function RolesPage() {
     .filter((permission) => !hasPermission(authUser, permission))
     .map((permission) => templateInstantiationPermissionLabels.get(permission) ?? permission);
   const selectedRoleIsManagedPropertyTemplate = Boolean(selectedRole?.managedTemplateCode);
+  const selectedRoleInstantiable = Boolean(selectedRole && canOpenTemplateInstance(selectedRole));
 
   async function load(page = 1, keepSelectedId = selectedRoleId) {
     const token = getToken();
@@ -293,8 +301,8 @@ export default function RolesPage() {
   }
 
   function openTemplateInstance(role: RoleNode) {
-    if (!role.managedTemplateCode) {
-      setMessage("该模板不是标准物业角色模板，请按原角色范围复制或配置。");
+    if (!canOpenTemplateInstance(role)) {
+      setMessage("该模板暂未开放实例化入口，请先按原角色范围复制或联系管理员处理。");
       return;
     }
     setTemplateInstanceRole(role);
@@ -548,7 +556,7 @@ export default function RolesPage() {
                   <div className="system-actions">
                     <PermissionButton className="ds-button ds-button-secondary" permission={SYSTEM_PERMISSIONS.ROLE_OPEN_UPDATE} type="button" onClick={() => openEditForm(selectedRole)}><Edit3 size={16} />编辑</PermissionButton>
                     <PermissionButton className="ds-button ds-button-secondary" permission={SYSTEM_PERMISSIONS.ROLE_DISABLE} type="button" onClick={() => void toggleStatus(selectedRole).catch(showError)}><Power size={16} />{selectedRole.status === "enabled" ? "停用" : "启用"}</PermissionButton>
-                    {selectedRoleIsManagedPropertyTemplate && canInstantiateTemplates ? <button className="ds-button ds-button-secondary" type="button" onClick={() => openTemplateInstance(selectedRole)}><Copy size={16} />实例化为普通角色</button> : null}
+                    {selectedRoleInstantiable && canInstantiateTemplates ? <button className="ds-button ds-button-secondary" type="button" onClick={() => openTemplateInstance(selectedRole)}><Copy size={16} />实例化为普通角色</button> : null}
                     {selectedRole.isBuiltin || selectedRole.isSystem || selectedRole.isDeletable === false ? null : <PermissionButton className="danger-button" permission={SYSTEM_PERMISSIONS.ROLE_OPEN_DELETE} type="button" onClick={() => void deleteRole(selectedRole).catch(showError)}><Trash2 size={16} />删除</PermissionButton>}
                   </div>
                 </div>
@@ -557,10 +565,12 @@ export default function RolesPage() {
                   <div className="status-pill" role="note">
                     {selectedRoleIsManagedPropertyTemplate
                       ? "标准物业模板不能直接授权或分配给用户；请先实例化为当前园区普通角色，实例化后可继续配置并分配给用户。"
-                      : "模板角色不能直接授权或分配给用户；非标准物业模板会按原角色范围复制，实例范围以复制结果为准。"}
-                    {selectedRoleIsManagedPropertyTemplate && canInstantiateTemplates ? (
+                      : selectedRoleInstantiable
+                        ? "模板角色不能直接授权或分配给用户；可按原角色范围实例化为普通角色后再分配给用户。"
+                        : "平台级模板受系统保护，不能直接授权或分配给用户，也不开放实例化。"}
+                    {selectedRoleInstantiable && canInstantiateTemplates ? (
                       <button className="inline-action-button" type="button" onClick={() => openTemplateInstance(selectedRole)}>实例化为普通角色</button>
-                    ) : selectedRoleIsManagedPropertyTemplate ? (
+                    ) : selectedRoleInstantiable ? (
                       <span> 当前账号缺少实例化所需权限：{missingTemplateInstantiationPermissions.join("、")}。</span>
                     ) : null}
                   </div>
@@ -683,7 +693,9 @@ export default function RolesPage() {
                 <Meta label="实例范围" value={templateInstanceRole.roleScope === "park" ? "当前园区" : templateInstanceRole.roleScope} />
                 <Meta label="数据范围" value={templateInstanceRole.dataScope} />
               </div>
-              <p className="muted-text">实例化后会生成非模板、非系统、非内置的普通角色；权限和当前园区数据范围由标准模板定义生成，字段策略沿用模板当前配置。</p>
+              <p className="muted-text">{templateInstanceRole.managedTemplateCode
+                ? "实例化后会生成非模板、非系统、非内置的普通角色；权限和当前园区数据范围由标准模板定义生成，字段策略沿用模板当前配置。"
+                : "实例化后会生成非模板、非系统、非内置的普通角色；权限、数据范围和字段策略按来源模板当前配置复制，实例范围以来源模板为准。"}</p>
               <div className="field"><label>新角色编码</label><input required value={templateInstanceForm.code} onChange={(event) => setTemplateInstanceForm({ ...templateInstanceForm, code: event.target.value })} /></div>
               <div className="field"><label>新角色名称</label><input required value={templateInstanceForm.name} onChange={(event) => setTemplateInstanceForm({ ...templateInstanceForm, name: event.target.value })} /></div>
               <div className="field">

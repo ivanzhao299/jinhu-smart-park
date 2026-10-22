@@ -38,11 +38,11 @@ test("template roles expose an explicit instantiation flow and permission guidan
   assert.match(source, /实例化为普通角色/);
   assert.match(source, /selectedRoleIsManagedPropertyTemplate/);
   assert.match(source, /标准物业模板不能直接授权或分配给用户/);
-  assert.match(source, /非标准物业模板会按原角色范围复制/);
+  assert.match(source, /可按原角色范围实例化为普通角色后再分配给用户/);
   assert.match(source, /当前账号缺少实例化所需权限/);
   assert.match(source, /openTemplateInstance\(selectedRole\)/);
   assert.match(source, /function openTemplateInstance\(role: RoleNode\)/);
-  assert.match(source, /if \(!role\.managedTemplateCode\)/);
+  assert.match(source, /if \(!canOpenTemplateInstance\(role\)\)/);
   assert.match(source, /async function submitTemplateInstance/);
   assert.match(source, /response\.data\.isAssignable && canAssignUserRoles/);
   assert.match(source, /title="实例化为普通角色"/);
