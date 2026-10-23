@@ -67,6 +67,19 @@ export async function assertSourceConservation(client) {
   if ((await client.query(`SELECT EXISTS(SELECT 1 FROM sp_all WHERE (j->'source'->>'year')::int NOT BETWEEN 2010 AND 2026 OR (j->'source'->>'month')::int NOT BETWEEN 1 AND 12 OR NOT EXISTS(SELECT 1 FROM sc WHERE (sc.j->'source'->>'scheme')::int=(sp_all.j->>'legacyScheme')::int AND (sc.j->'source'->>'year')::int=(sp_all.j->'source'->>'year')::int AND (sc.j->'source'->>'month')::int=(sp_all.j->'source'->>'month')::int)) invalid`)).rows[0].invalid) failT4("T4_SOURCE_PERIOD_INVALID");
 }
 
+export async function assertT4EmployeeScope(client, parentOperationId) {
+  // Materialize source owners once: a correlated scan repeatedly detoasts the
+  // full wage JSON for employees with no wage history in this source archive.
+  const result = await client.query(`WITH source_people AS MATERIALIZED (
+    SELECT j->'source'->>'person' employee_code FROM sp_all
+    UNION SELECT j->'source'->>'person' employee_code FROM sm
+  ) SELECT EXISTS(SELECT 1 FROM source_people p JOIN em ON em.employee_code=p.employee_code
+    WHERE em.n=1 AND NOT EXISTS(SELECT 1 FROM hr_yuzhou_production_import_record r
+      WHERE r.operation_id=$1 AND r.phase='T0' AND r.target_table='hr_employee'
+        AND r.target_id=em.id AND r.rollback_status='not_started')) invalid`, [parentOperationId]);
+  if (result.rows[0].invalid) failT4("T4_EMPLOYEE_OUTSIDE_CORE_MAP");
+}
+
 async function assertAmounts(client, binding, target = false) {
   for (const window of ["full", "hot"]) {
     const source = target
@@ -103,7 +116,7 @@ export async function executeT4Followon({ client, binding, authorization, parent
       await client.query(T4_INSERT_PREFIX);
       // em initially follows the existing loader's unique employee-code rule.
       // Every resolved employee must also belong to the succeeded core T0 map.
-      if ((await client.query(`SELECT EXISTS(SELECT 1 FROM em WHERE n=1 AND (EXISTS(SELECT 1 FROM sp_all WHERE j->'source'->>'person'=em.employee_code) OR EXISTS(SELECT 1 FROM sm WHERE j->'source'->>'person'=em.employee_code)) AND NOT EXISTS(SELECT 1 FROM hr_yuzhou_production_import_record r WHERE r.operation_id=$1 AND r.phase='T0' AND r.target_table='hr_employee' AND r.target_id=em.id AND r.rollback_status='not_started')) invalid`, [binding.parent.operationId])).rows[0].invalid) failT4("T4_EMPLOYEE_OUTSIDE_CORE_MAP");
+      await assertT4EmployeeScope(client, binding.parent.operationId);
       // Fresh-table estimates chose the (tenant,park,employee) index for the
       // snapshot FK, scanning the whole scope for each item. The synthetic
       // 46,092-row EXPLAIN switches to snapshot_pkey after this ANALYZE.
